@@ -1,34 +1,25 @@
-import { PrismaClient } from '@prisma/client'
-import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { createClient } from '@libsql/client'
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+const globalForDb = globalThis as unknown as {
+  libsqlClient: ReturnType<typeof createClient> | undefined
 }
 
-function createPrismaClient() {
-  const url = process.env.DATABASE_URL
+function createDbClient() {
+  const url = process.env.TURSO_URL || process.env.DATABASE_URL
   if (!url) {
-    throw new Error('DATABASE_URL environment variable is not set')
+    throw new Error('DATABASE_URL or TURSO_URL environment variable is not set')
   }
 
-  // If it's a libsql:// URL, use the libSQL adapter (Turso)
+  // Turso / libsql connection
   if (url.startsWith('libsql://')) {
-    const authToken = process.env.DATABASE_AUTH_TOKEN
-    const libsql = createClient({ url, authToken })
-    const adapter = new PrismaLibSql(libsql)
-    // When using the adapter, Prisma still reads DATABASE_URL for the datasource
-    // block validation, but it's not actually used for connections.
-    process.env.DATABASE_URL = 'file:./db/placeholder.db'
-    return new PrismaClient({ adapter } as any)
+    const authToken = process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN
+    return createClient({ url, authToken })
   }
 
-  // Otherwise, fall back to regular SQLite (local dev)
-  return new PrismaClient({
-    log: process.env.NODE_ENV !== 'production' ? ['query'] : [],
-  })
+  // Local SQLite
+  return createClient({ url })
 }
 
-export const db = globalForPrisma.prisma ?? createPrismaClient()
+export const db = globalForDb.libsqlClient ?? createDbClient()
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+if (process.env.NODE_ENV !== 'production') globalForDb.libsqlClient = db

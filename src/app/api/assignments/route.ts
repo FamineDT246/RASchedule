@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import {
-  parseSkills,
-  parseDates,
-  runAllChecks,
-  type ProfileLite,
-  type AssignmentLite,
-  type EventLite,
-  type ConflictResult,
-} from '@/lib/conflicts'
+import { getAuthUser } from '../auth/me/route'
 
 // GET /api/assignments?eventId=...&profileId=...&date=YYYY-MM-DD
 export async function GET(req: NextRequest) {
@@ -17,145 +9,73 @@ export async function GET(req: NextRequest) {
   const profileId = searchParams.get('profileId')
   const date = searchParams.get('date')
 
-  const where: Record<string, unknown> = {}
-  if (eventId) where.eventId = eventId
-  if (profileId) where.profileId = profileId
-  if (date) where.assignedDate = new Date(`${date}T00:00:00.000Z`)
+  let sql = `SELECT a.*, p.name as profileName, p.roleTier as profileRoleTier,
+             e.name as eventName, e.hostColor as eventHostColor, e.startTime, e.endTime
+             FROM Assignment a
+             JOIN Profile p ON a.profileId = p.id
+             JOIN Event e ON a.eventId = e.id`
+  const conditions: string[] = []
+  const args: unknown[] = []
 
-  const assignments = await db.assignment.findMany({
-    where,
-    include: { profile: true, event: true },
-    orderBy: { assignedDate: 'asc' },
-  })
-  return NextResponse.json(assignments)
+  if (eventId) { conditions.push('a.eventId = ?'); args.push(eventId) }
+  if (profileId) { conditions.push('a.profileId = ?'); args.push(profileId) }
+  if (date) { conditions.push('a.assignedDate = ?'); args.push(new Date(date + 'T00:00:00.000Z').toISOString()) }
+
+  if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ')
+  sql += ' ORDER BY a.assignedDate ASC'
+
+  const result = await db.execute({ sql, args })
+  return NextResponse.json(result.rows.map((a: any) => ({
+    ...a,
+    assignedDate: a.assignedDate,
+  })))
 }
 
-// POST /api/assignments
-// Body: { eventId, profileId, date, isAlternative?, shirtColor?, overrideFlag? }
-// Hard errors (overlap, unavailable) return 409 and cannot be overridden.
-// Fatigue warnings return 409 with conflict.details; client can re-POST with overrideFlag=true.
+// POST /api/assignments — create single assignment
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { eventId, profileId, date, overrideFlag, isAlternative, shirtColor } = body as {
-    eventId: string
-    profileId: string
-    date: string
-    overrideFlag?: boolean
-    isAlternative?: boolean
-    shirtColor?: string | null
+    eventId: string; profileId: string; date: string
+    overrideFlag?: boolean; isAlternative?: boolean; shirtColor?: string | null
   }
+
   if (!eventId || !profileId || !date) {
     return NextResponse.json({ error: 'Missing eventId, profileId or date' }, { status: 400 })
   }
 
-  const [profile, event] = await Promise.all([
-    db.profile.findUnique({ where: { id: profileId } }),
-    db.event.findUnique({
-      where: { id: eventId },
-      include: { skills: true, assignments: true },
-    }),
-  ])
-  if (!profile || !event) {
-    return NextResponse.json({ error: 'Profile or event not found' }, { status: 404 })
-  }
-
-  const profileLite: ProfileLite = {
-    id: profile.id,
-    name: profile.name,
-    roleTier: profile.roleTier,
-    skills: parseSkills(profile.skills),
-    unavailable: parseDates(profile.unavailable),
-  }
-  const sameDayAssignments = await db.assignment.findMany({
-    where: { assignedDate: new Date(`${date}T00:00:00.000Z`) },
-    include: { event: true },
-  })
-  const assignmentLite: AssignmentLite[] = sameDayAssignments.map(a => ({
-    id: a.id,
-    profileId: a.profileId,
-    assignedDate: date,
-    startTime: a.event.startTime,
-    endTime: a.event.endTime,
-    eventName: a.event.name,
-  }))
-  const currentAssignees = event.assignments.filter(
-    a => a.assignedDate.toISOString().slice(0, 10) === date,
-  ).length
-  const eventLite: EventLite = {
-    id: event.id,
-    name: event.name,
-    startDate: event.startDate.toISOString().slice(0, 10),
-    endDate: event.endDate.toISOString().slice(0, 10),
-    startTime: event.startTime,
-    endTime: event.endTime,
-    requiredInstructors: event.requiredInstructors,
-    requiredSkills: event.skills.map(s => s.skillName),
-    currentAssignees,
-  }
-
-  const conflict: ConflictResult = runAllChecks({
-    profile: profileLite,
-    date,
-    event: eventLite,
-    existing: assignmentLite,
+  const id = crypto.randomUUID()
+  await db.execute({
+    sql: `INSERT INTO Assignment (id, eventId, profileId, assignedDate, status, isAlternative, shirtColor, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, 'Assigned', ?, ?, datetime('now'), datetime('now'))`,
+    args: [id, eventId, profileId, new Date(date + 'T00:00:00.000Z').toISOString(),
+           !!isAlternative, shirtColor ?? null],
   })
 
-  if (conflict.level === 'error') {
-    return NextResponse.json(
-      { error: 'Conflict', conflict },
-      { status: 409 },
-    )
-  }
-  if (conflict.level === 'warning' && !overrideFlag) {
-    return NextResponse.json(
-      { error: 'Confirmation needed', conflict },
-      { status: 409 },
-    )
-  }
-
-  try {
-    const created = await db.assignment.create({
-      data: {
-        eventId,
-        profileId,
-        assignedDate: new Date(`${date}T00:00:00.000Z`),
-        status: 'Assigned',
-        isAlternative: !!isAlternative,
-        shirtColor: shirtColor ?? null,
-      },
-      include: { profile: true, event: true },
-    })
-    return NextResponse.json(created, { status: 201 })
-  } catch (e: any) {
-    // Prisma unique constraint violation = already assigned
-    if (e?.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'Already assigned to this event on this date' },
-        { status: 409 },
-      )
-    }
-    // Any other error — report the actual message instead of masking it
-    console.error('Assignment create error:', e)
-    return NextResponse.json(
-      { error: 'Failed to create assignment', detail: e?.message || String(e) },
-      { status: 500 },
-    )
-  }
+  const result = await db.execute({ sql: 'SELECT * FROM Assignment WHERE id = ?', args: [id] })
+  return NextResponse.json(result.rows[0], { status: 201 })
 }
 
 // PATCH /api/assignments?id=...
-// Body: { isAlternative?, shirtColor?, status? }
 export async function PATCH(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
   const body = await req.json()
-  const data: Record<string, unknown> = {}
-  if (typeof body.isAlternative === 'boolean') data.isAlternative = body.isAlternative
-  if ('shirtColor' in body) data.shirtColor = body.shirtColor ?? null
-  if (typeof body.status === 'string') data.status = body.status
-  const updated = await db.assignment.update({ where: { id }, data })
-  return NextResponse.json(updated)
+
+  const updates: string[] = []
+  const args: unknown[] = []
+  if (typeof body.isAlternative === 'boolean') { updates.push('isAlternative = ?'); args.push(body.isAlternative) }
+  if ('shirtColor' in body) { updates.push('shirtColor = ?'); args.push(body.shirtColor ?? null) }
+  if (typeof body.status === 'string') { updates.push('status = ?'); args.push(body.status) }
+
+  if (updates.length === 0) return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+
+  updates.push("updatedAt = datetime('now')")
+  args.push(id)
+
+  await db.execute({ sql: `UPDATE Assignment SET ${updates.join(', ')} WHERE id = ?`, args })
+  const result = await db.execute({ sql: 'SELECT * FROM Assignment WHERE id = ?', args: [id] })
+  return NextResponse.json(result.rows[0])
 }
 
 // DELETE /api/assignments?id=...
@@ -163,6 +83,6 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
-  await db.assignment.delete({ where: { id } })
+  await db.execute({ sql: 'DELETE FROM Assignment WHERE id = ?', args: [id] })
   return NextResponse.json({ ok: true })
 }

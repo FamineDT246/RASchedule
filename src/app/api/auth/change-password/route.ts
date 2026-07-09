@@ -4,7 +4,6 @@ import bcrypt from 'bcryptjs'
 import { getAuthUser } from '../me/route'
 
 // POST /api/auth/change-password
-// Body: { currentPassword, newPassword }
 export async function POST(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -28,10 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   const newHash = await bcrypt.hash(newPassword, 10)
-  await db.user.update({
-    where: { id: user.id },
-    data: { passwordHash: newHash },
-  })
+  await db.execute({ sql: 'UPDATE User SET passwordHash = ? WHERE id = ?', args: [newHash, user.id] })
 
   return NextResponse.json({ ok: true })
 }

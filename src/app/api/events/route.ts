@@ -1,97 +1,128 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function GET() {
-  const events = await db.event.findMany({
-    include: { skills: true, assignments: true, optIns: { include: { user: true } } },
-    orderBy: { startDate: 'asc' },
-  })
-  return NextResponse.json(events.map(e => ({
-    ...e,
-    startDate: e.startDate.toISOString().slice(0, 10),
-    endDate: e.endDate.toISOString().slice(0, 10),
-    specificDatesList: e.specificDates ? e.specificDates.split(',').map(s => s.trim()).filter(Boolean) : [],
-    requiredSkills: e.skills.map(s => s.skillName),
-    _assignmentCount: e.assignments.length,
-    _optInCount: e.optIns.length,
-    _optIns: e.optIns.map(o => ({ id: o.id, status: o.status, note: o.note, userId: o.userId, userName: o.user.name })),
-  })))
+function parseList(s: string | null | undefined): string[] {
+  if (!s) return []
+  return s.split(',').map(x => x.trim()).filter(Boolean)
 }
 
+// GET /api/events — list all events
+export async function GET() {
+  const result = await db.execute(`SELECT * FROM Event ORDER BY startDate ASC`)
+
+  // Get skills + assignment counts + opt-in counts
+  const events = []
+  for (const e of result.rows as any[]) {
+    const skills = await db.execute({ sql: 'SELECT skillName FROM EventSkill WHERE eventId = ?', args: [e.id] })
+    const assignments = await db.execute({ sql: 'SELECT COUNT(*) as count FROM Assignment WHERE eventId = ?', args: [e.id] })
+    const optIns = await db.execute({ sql: 'SELECT COUNT(*) as count FROM OptIn WHERE eventId = ?', args: [e.id] })
+    events.push({
+      ...e,
+      startDate: e.startDate?.slice(0, 10),
+      endDate: e.endDate?.slice(0, 10),
+      specificDatesList: parseList(e.specificDates),
+      requiredSkills: skills.rows.map((s: any) => s.skillName),
+      _assignmentCount: (assignments.rows[0] as any).count,
+      _optInCount: (optIns.rows[0] as any).count,
+    })
+  }
+
+  return NextResponse.json(events)
+}
+
+// POST /api/events — create
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const created = await db.event.create({
-    data: {
-      code: body.code ?? null,
-      name: body.name,
-      host: body.host,
-      hostColor: body.hostColor ?? 'slate',
-      location: body.location ?? null,
-      description: body.description ?? null,
-      lengthDays: body.lengthDays ?? null,
-      startDate: new Date(`${body.startDate}T00:00:00.000Z`),
-      endDate: new Date(`${body.endDate}T23:59:59.000Z`),
-      startTime: body.startTime ?? '09:00',
-      endTime: body.endTime ?? '15:00',
-      status: body.status ?? 'Confirmed',
-      specificDates: Array.isArray(body.specificDates) && body.specificDates.length
-        ? body.specificDates.join(',')
-        : null,
-      ageRange: body.ageRange ?? null,
-      participantCount: body.participantCount ?? null,
-      requiredInstructors: body.requiredInstructors ?? 2,
-      notes: body.notes ?? null,
-      skills: body.skills
-        ? { create: (body.skills as string[]).map(skillName => ({ skillName })) }
-        : undefined,
-    },
-    include: { skills: true },
+  const id = crypto.randomUUID()
+
+  await db.execute({
+    sql: `INSERT INTO Event (id, code, name, host, location, description, lengthDays, startDate, endDate, 
+          startTime, endTime, status, specificDates, ageRange, participantCount, requiredInstructors, 
+          notes, hostColor, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+    args: [
+      id, body.code ?? null, body.name, body.host, body.location ?? null, body.description ?? null,
+      body.lengthDays ?? null,
+      new Date(body.startDate).toISOString(),
+      new Date(body.endDate).toISOString(),
+      body.startTime ?? '09:00', body.endTime ?? '15:00',
+      body.status ?? 'Confirmed',
+      Array.isArray(body.specificDates) && body.specificDates.length ? body.specificDates.join(',') : null,
+      body.ageRange ?? null, body.participantCount ?? null, body.requiredInstructors ?? 2,
+      body.notes ?? null, body.hostColor ?? 'slate',
+    ],
   })
-  return NextResponse.json(created, { status: 201 })
+
+  // Insert skills
+  if (Array.isArray(body.skills)) {
+    for (const skillName of body.skills) {
+      await db.execute({
+        sql: 'INSERT INTO EventSkill (id, eventId, skillName) VALUES (?, ?, ?)',
+        args: [crypto.randomUUID(), id, skillName],
+      })
+    }
+  }
+
+  const result = await db.execute({ sql: 'SELECT * FROM Event WHERE id = ?', args: [id] })
+  return NextResponse.json(result.rows[0], { status: 201 })
 }
 
-// PUT /api/events?id=... — full update
+// PUT /api/events?id=...
 export async function PUT(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
   const body = await req.json()
 
-  // Replace skills list if provided
+  // Replace skills if provided
   if (Array.isArray(body.skills)) {
-    await db.eventSkill.deleteMany({ where: { eventId: id } })
-    if (body.skills.length > 0) {
-      await db.eventSkill.createMany({
-        data: body.skills.map((skillName: string) => ({ eventId: id, skillName })),
+    await db.execute({ sql: 'DELETE FROM EventSkill WHERE eventId = ?', args: [id] })
+    for (const skillName of body.skills) {
+      await db.execute({
+        sql: 'INSERT INTO EventSkill (id, eventId, skillName) VALUES (?, ?, ?)',
+        args: [crypto.randomUUID(), id, skillName],
       })
     }
   }
 
-  const data: Record<string, unknown> = {}
-  if (typeof body.code === 'string' || body.code === null) data.code = body.code
-  if (typeof body.name === 'string') data.name = body.name
-  if (typeof body.host === 'string') data.host = body.host
-  if (typeof body.hostColor === 'string') data.hostColor = body.hostColor
-  if ('location' in body) data.location = body.location ?? null
-  if ('description' in body) data.description = body.description ?? null
-  if ('lengthDays' in body) data.lengthDays = body.lengthDays ?? null
-  if (typeof body.startDate === 'string') data.startDate = new Date(`${body.startDate}T00:00:00.000Z`)
-  if (typeof body.endDate === 'string') data.endDate = new Date(`${body.endDate}T23:59:59.000Z`)
-  if (typeof body.startTime === 'string') data.startTime = body.startTime
-  if (typeof body.endTime === 'string') data.endTime = body.endTime
-  if (typeof body.status === 'string') data.status = body.status
-  if ('specificDates' in body) {
-    data.specificDates = Array.isArray(body.specificDates) && body.specificDates.length
-      ? body.specificDates.join(',')
-      : null
+  const updates: string[] = []
+  const args: unknown[] = []
+  const fields: Record<string, string> = {
+    code: 'code', name: 'name', host: 'host', hostColor: 'hostColor',
+    location: 'location', description: 'description', lengthDays: 'lengthDays',
+    startTime: 'startTime', endTime: 'endTime', status: 'status',
+    ageRange: 'ageRange', participantCount: 'participantCount',
+    requiredInstructors: 'requiredInstructors', notes: 'notes',
   }
-  if ('ageRange' in body) data.ageRange = body.ageRange ?? null
-  if ('participantCount' in body) data.participantCount = body.participantCount ?? null
-  if (typeof body.requiredInstructors === 'number') data.requiredInstructors = body.requiredInstructors
-  if ('notes' in body) data.notes = body.notes ?? null
 
-  const updated = await db.event.update({ where: { id }, data, include: { skills: true } })
-  return NextResponse.json(updated)
+  for (const [key, col] of Object.entries(fields)) {
+    if (key in body) {
+      updates.push(`${col} = ?`)
+      args.push(body[key] ?? null)
+    }
+  }
+
+  if (typeof body.startDate === 'string') {
+    updates.push('startDate = ?')
+    args.push(new Date(body.startDate).toISOString())
+  }
+  if (typeof body.endDate === 'string') {
+    updates.push('endDate = ?')
+    args.push(new Date(body.endDate).toISOString())
+  }
+  if ('specificDates' in body) {
+    updates.push('specificDates = ?')
+    args.push(Array.isArray(body.specificDates) && body.specificDates.length ? body.specificDates.join(',') : null)
+  }
+
+  if (updates.length > 0) {
+    updates.push("updatedAt = datetime('now')")
+    args.push(id)
+    await db.execute({ sql: `UPDATE Event SET ${updates.join(', ')} WHERE id = ?`, args })
+  }
+
+  const result = await db.execute({ sql: 'SELECT * FROM Event WHERE id = ?', args: [id] })
+  return NextResponse.json(result.rows[0])
 }
 
 // DELETE /api/events?id=...
@@ -99,6 +130,6 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
-  await db.event.delete({ where: { id } })
+  await db.execute({ sql: 'DELETE FROM Event WHERE id = ?', args: [id] })
   return NextResponse.json({ ok: true })
 }

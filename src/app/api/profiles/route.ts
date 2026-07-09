@@ -1,62 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { parseSkills, parseDates } from '@/lib/conflicts'
+import { getAuthUser } from '../auth/me/route'
 
-export async function GET() {
-  const profiles = await db.profile.findMany({ orderBy: [{ roleTier: 'asc' }, { name: 'asc' }] })
-  return NextResponse.json(
-    profiles.map(p => ({
-      ...p,
-      skillsList: parseSkills(p.skills),
-      unavailableList: parseDates(p.unavailable),
-    })),
-  )
+function parseList(s: string | null | undefined): string[] {
+  if (!s) return []
+  return s.split(',').map(x => x.trim()).filter(Boolean)
 }
 
+// GET /api/profiles
+export async function GET() {
+  const result = await db.execute(
+    `SELECT * FROM Profile ORDER BY roleTier ASC, name ASC`
+  )
+  return NextResponse.json(result.rows.map((p: any) => ({
+    ...p,
+    skillsList: parseList(p.skills),
+    unavailableList: parseList(p.unavailable),
+  })))
+}
+
+// POST /api/profiles — create
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const created = await db.profile.create({
-    data: {
-      name: body.name,
-      sex: body.sex ?? null,
-      role: body.role,
-      roleTier: body.roleTier ?? 'Junior',
-      skills: Array.isArray(body.skills) ? body.skills.join(',') : (body.skills ?? ''),
-      available: body.available ?? null,
-      unavailable: Array.isArray(body.unavailable) ? body.unavailable.join(',') : (body.unavailable ?? null),
-      contractSigned: !!body.contractSigned,
-      notes: body.notes ?? null,
-    },
+  const id = crypto.randomUUID()
+  const skills = Array.isArray(body.skills) ? body.skills.join(',') : (body.skills ?? '')
+  const unavailable = Array.isArray(body.unavailable) ? body.unavailable.join(',') : (body.unavailable ?? null)
+
+  await db.execute({
+    sql: `INSERT INTO Profile (id, name, sex, role, roleTier, skills, available, unavailable, contractSigned, notes, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+    args: [id, body.name, body.sex ?? null, body.role, body.roleTier ?? 'Junior',
+           skills, body.available ?? null, unavailable, !!body.contractSigned, body.notes ?? null],
   })
-  return NextResponse.json(created, { status: 201 })
+
+  const result = await db.execute({ sql: 'SELECT * FROM Profile WHERE id = ?', args: [id] })
+  return NextResponse.json(result.rows[0], { status: 201 })
 }
 
-// PUT /api/profiles?id=... — full update
+// PUT /api/profiles?id=...
 export async function PUT(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
   const body = await req.json()
 
-  const data: Record<string, unknown> = {}
-  if (typeof body.name === 'string') data.name = body.name
-  if (typeof body.sex === 'string' || body.sex === null) data.sex = body.sex ?? null
-  if (typeof body.role === 'string') data.role = body.role
-  if (typeof body.roleTier === 'string') data.roleTier = body.roleTier
+  const updates: string[] = []
+  const args: unknown[] = []
+  if (typeof body.name === 'string') { updates.push('name = ?'); args.push(body.name) }
+  if ('sex' in body) { updates.push('sex = ?'); args.push(body.sex ?? null) }
+  if (typeof body.role === 'string') { updates.push('role = ?'); args.push(body.role) }
+  if (typeof body.roleTier === 'string') { updates.push('roleTier = ?'); args.push(body.roleTier) }
   if ('skills' in body) {
-    data.skills = Array.isArray(body.skills) ? body.skills.join(',') : (body.skills ?? '')
+    updates.push('skills = ?')
+    args.push(Array.isArray(body.skills) ? body.skills.join(',') : (body.skills ?? ''))
   }
-  if ('available' in body) data.available = body.available ?? null
+  if ('available' in body) { updates.push('available = ?'); args.push(body.available ?? null) }
   if ('unavailable' in body) {
-    data.unavailable = Array.isArray(body.unavailable)
-      ? body.unavailable.join(',')
-      : (body.unavailable ?? null)
+    updates.push('unavailable = ?')
+    args.push(Array.isArray(body.unavailable) ? body.unavailable.join(',') : (body.unavailable ?? null))
   }
-  if (typeof body.contractSigned === 'boolean') data.contractSigned = body.contractSigned
-  if ('notes' in body) data.notes = body.notes ?? null
+  if (typeof body.contractSigned === 'boolean') { updates.push('contractSigned = ?'); args.push(body.contractSigned) }
+  if ('notes' in body) { updates.push('notes = ?'); args.push(body.notes ?? null) }
 
-  const updated = await db.profile.update({ where: { id }, data })
-  return NextResponse.json(updated)
+  if (updates.length === 0) return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+
+  updates.push("updatedAt = datetime('now')")
+  args.push(id)
+
+  await db.execute({ sql: `UPDATE Profile SET ${updates.join(', ')} WHERE id = ?`, args })
+  const result = await db.execute({ sql: 'SELECT * FROM Profile WHERE id = ?', args: [id] })
+  return NextResponse.json(result.rows[0])
 }
 
 // DELETE /api/profiles?id=...
@@ -64,6 +77,6 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
-  await db.profile.delete({ where: { id } })
+  await db.execute({ sql: 'DELETE FROM Profile WHERE id = ?', args: [id] })
   return NextResponse.json({ ok: true })
 }

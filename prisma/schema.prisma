@@ -1,5 +1,5 @@
 // Robot Adventure — Camp & Workshop Scheduler
-// Turso (libSQL) cloud database — persists across Vercel deploys
+// Turso (libSQL) via Prisma driver adapter
 
 generator client {
   provider        = "prisma-client-js"
@@ -7,8 +7,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "sqlite"
-  url       = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // ---------- Staff ----------

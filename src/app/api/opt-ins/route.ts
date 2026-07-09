@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getAuthUser } from '../auth/me/route'
 
-// GET /api/opt-ins?eventId=... — list opt-ins (optionally filtered by event)
-// If the caller is an instructor, only their own opt-ins are returned.
+// GET /api/opt-ins?eventId=...
 export async function GET(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -11,32 +10,40 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const eventId = searchParams.get('eventId')
 
-  const where: Record<string, unknown> = {}
-  if (eventId) where.eventId = eventId
-  if (user.role === 'instructor') where.userId = user.id
+  let sql = `SELECT o.*, u.name as userName, u.profileId as userProfileId, p.name as userProfileName,
+             e.name as eventName
+             FROM OptIn o
+             JOIN User u ON o.userId = u.id
+             LEFT JOIN Profile p ON u.profileId = p.id
+             JOIN Event e ON o.eventId = e.id`
+  const args: unknown[] = []
 
-  const optIns = await db.optIn.findMany({
-    where,
-    include: { event: true, user: { include: { profile: true } } },
-    orderBy: { createdAt: 'desc' },
-  })
-  return NextResponse.json(optIns.map(o => ({
+  if (eventId) {
+    sql += ' WHERE o.eventId = ?'
+    args.push(eventId)
+  } else if (user.role === 'instructor') {
+    sql += ' WHERE o.userId = ?'
+    args.push(user.id)
+  }
+
+  sql += ' ORDER BY o.createdAt DESC'
+
+  const result = await db.execute({ sql, args })
+  return NextResponse.json(result.rows.map((o: any) => ({
     id: o.id,
     userId: o.userId,
-    userName: o.user.name,
-    userProfileId: o.user.profileId ?? null,
-    userProfileName: o.user.profile?.name ?? null,
+    userName: o.userName,
+    userProfileId: o.userProfileId,
+    userProfileName: o.userProfileName,
     eventId: o.eventId,
-    eventName: o.event.name,
+    eventName: o.eventName,
     status: o.status,
     note: o.note,
-    createdAt: o.createdAt.toISOString(),
+    createdAt: new Date(o.createdAt).toISOString(),
   })))
 }
 
-// POST /api/opt-ins
-// Body: { eventId, status: 'interested' | 'available' | 'unavailable', note? }
-// Instructors only. Upserts the opt-in for the current user.
+// POST /api/opt-ins — upsert
 export async function POST(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -45,19 +52,31 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { eventId, status, note } = body as {
-    eventId: string
-    status: string
-    note?: string
-  }
+  const { eventId, status, note } = body as { eventId: string; status: string; note?: string }
   if (!eventId || !['interested', 'available', 'unavailable'].includes(status)) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
   }
 
-  const updated = await db.optIn.upsert({
-    where: { userId_eventId: { userId: user.id, eventId } },
-    create: { userId: user.id, eventId, status, note: note ?? null },
-    update: { status, note: note ?? null },
+  // Check if opt-in exists
+  const existing = await db.execute({
+    sql: 'SELECT id FROM OptIn WHERE userId = ? AND eventId = ?',
+    args: [user.id, eventId],
   })
-  return NextResponse.json(updated, { status: 201 })
+
+  if (existing.rows.length > 0) {
+    const id = (existing.rows[0] as any).id
+    await db.execute({
+      sql: "UPDATE OptIn SET status = ?, note = ?, updatedAt = datetime('now') WHERE id = ?",
+      args: [status, note ?? null, id],
+    })
+    return NextResponse.json({ id, userId: user.id, eventId, status, note })
+  } else {
+    const id = crypto.randomUUID()
+    await db.execute({
+      sql: `INSERT INTO OptIn (id, userId, eventId, status, note, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      args: [id, user.id, eventId, status, note ?? null],
+    })
+    return NextResponse.json({ id, userId: user.id, eventId, status, note }, { status: 201 })
+  }
 }

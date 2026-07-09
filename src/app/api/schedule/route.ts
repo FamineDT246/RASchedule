@@ -1,89 +1,120 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { parseSkills, parseDates } from '@/lib/conflicts'
 
-// GET /api/schedule?from=YYYY-MM-DD&to=YYYY-MM-DD&includeDrafts=1
-// Returns profiles, events (with skills), assignments, and opt-in counts in the window.
-// By default, Draft events are excluded. Pass includeDrafts=1 to include them.
+function parseList(s: string | null | undefined): string[] {
+  if (!s) return []
+  return s.split(',').map(x => x.trim()).filter(Boolean)
+}
+
+// GET /api/schedule?from=YYYY-MM-DD&to=YYYY-MM-DD
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const fromStr = searchParams.get('from')
   const toStr = searchParams.get('to')
   const includeDrafts = searchParams.get('includeDrafts') === '1'
 
-  const from = fromStr ? new Date(`${fromStr}T00:00:00.000Z`) : new Date('2026-06-01T00:00:00.000Z')
-  const to = toStr ? new Date(`${toStr}T23:59:59.000Z`) : new Date('2026-09-30T23:59:59.000Z')
+  const from = fromStr || '2026-06-01'
+  const to = toStr || '2026-09-30'
 
-  const [profiles, events, assignments, optIns] = await Promise.all([
-    db.profile.findMany({ orderBy: [{ roleTier: 'asc' }, { name: 'asc' }] }),
-    db.event.findMany({
-      where: {
-        AND: [
-          includeDrafts ? {} : { status: { not: 'Draft' } },
-          {
-            OR: [
-              { startDate: { gte: from, lte: to } },
-              { endDate: { gte: from, lte: to } },
-              { AND: [{ startDate: { lte: from } }, { endDate: { gte: to } }] },
-            ],
-          },
-        ],
-      },
-      include: { skills: true },
-      orderBy: { startDate: 'asc' },
-    }),
-    db.assignment.findMany({
-      where: { assignedDate: { gte: from, lte: to } },
-      include: { profile: true, event: true },
-      orderBy: { assignedDate: 'asc' },
-    }),
-    db.optIn.findMany({
-      include: { user: { include: { profile: true } } },
-    }),
-  ])
+  // Fetch profiles
+  const profileResult = await db.execute(
+    `SELECT * FROM Profile ORDER BY roleTier ASC, name ASC`
+  )
+  const profiles = profileResult.rows.map((p: any) => ({
+    ...p,
+    skillsList: parseList(p.skills),
+    unavailableList: parseList(p.unavailable),
+  }))
 
-  // Group opt-ins by event id, with interested/available/unavailable counts + names
-  const optInsByEvent: Record<string, { interested: any[]; available: any[]; unavailable: any[] }> = {}
-  for (const o of optIns) {
-    if (!optInsByEvent[o.eventId]) optInsByEvent[o.eventId] = { interested: [], available: [], unavailable: [] }
-    const entry = {
-      id: o.id,
-      status: o.status,
-      note: o.note,
-      userId: o.userId,
-      userName: o.user.name,
-      userProfileId: o.user.profileId,
-      userProfileName: o.user.profile?.name ?? null,
+  // Fetch events (exclude Draft unless includeDrafts=1)
+  const eventQuery = includeDrafts
+    ? `SELECT * FROM Event WHERE 
+       (startDate >= ? AND startDate <= ?) OR 
+       (endDate >= ? AND endDate <= ?) OR 
+       (startDate <= ? AND endDate >= ?) 
+       ORDER BY startDate ASC`
+    : `SELECT * FROM Event WHERE status != 'Draft' AND (
+       (startDate >= ? AND startDate <= ?) OR 
+       (endDate >= ? AND endDate <= ?) OR 
+       (startDate <= ? AND endDate >= ?) 
+       ) ORDER BY startDate ASC`
+  const eventArgs = [from, to, from, to, from, to]
+  const eventResult = await db.execute({ sql: eventQuery, args: eventArgs })
+  const eventIds = eventResult.rows.map((e: any) => e.id)
+
+  // Fetch skills for events
+  let eventSkills: Record<string, string[]> = {}
+  if (eventIds.length > 0) {
+    const placeholders = eventIds.map(() => '?').join(',')
+    const skillResult = await db.execute({
+      sql: `SELECT * FROM EventSkill WHERE eventId IN (${placeholders})`,
+      args: eventIds,
+    })
+    for (const s of skillResult.rows as any[]) {
+      if (!eventSkills[s.eventId]) eventSkills[s.eventId] = []
+      eventSkills[s.eventId].push(s.skillName)
     }
-    ;(optInsByEvent[o.eventId] as any)[o.status]?.push(entry)
   }
 
+  // Fetch opt-ins
+  let optInsByEvent: Record<string, any> = {}
+  if (eventIds.length > 0) {
+    const placeholders = eventIds.map(() => '?').join(',')
+    const optInResult = await db.execute({
+      sql: `SELECT o.*, u.name as userName, u.profileId as userProfileId, p.name as userProfileName
+            FROM OptIn o 
+            JOIN User u ON o.userId = u.id
+            LEFT JOIN Profile p ON u.profileId = p.id
+            WHERE o.eventId IN (${placeholders})`,
+      args: eventIds,
+    })
+    for (const o of optInResult.rows as any[]) {
+      if (!optInsByEvent[o.eventId]) {
+        optInsByEvent[o.eventId] = { interested: [], available: [], unavailable: [] }
+      }
+      const entry = {
+        id: o.id, status: o.status, note: o.note,
+        userId: o.userId, userName: o.userName,
+        userProfileId: o.userProfileId, userProfileName: o.userProfileName,
+      }
+      ;(optInsByEvent[o.eventId] as any)[o.status]?.push(entry)
+    }
+  }
+
+  // Fetch assignments
+  const assignmentResult = await db.execute({
+    sql: `SELECT a.*, p.name as profileName, p.roleTier as profileRoleTier, 
+          e.name as eventName, e.hostColor as eventHostColor
+          FROM Assignment a
+          JOIN Profile p ON a.profileId = p.id
+          JOIN Event e ON a.eventId = e.id
+          WHERE a.assignedDate >= ? AND a.assignedDate <= ?
+          ORDER BY a.assignedDate ASC`,
+    args: [from, to],
+  })
+
   return NextResponse.json({
-    profiles: profiles.map(p => ({
-      ...p,
-      skillsList: parseSkills(p.skills),
-      unavailableList: parseDates(p.unavailable),
-    })),
-    events: events.map(e => ({
+    profiles,
+    events: eventResult.rows.map((e: any) => ({
       ...e,
-      startDate: e.startDate.toISOString().slice(0, 10),
-      endDate: e.endDate.toISOString().slice(0, 10),
-      specificDatesList: e.specificDates ? parseDates(e.specificDates) : [],
-      requiredSkills: e.skills.map(s => s.skillName),
+      startDate: e.startDate?.slice(0, 10),
+      endDate: e.endDate?.slice(0, 10),
+      specificDatesList: parseList(e.specificDates),
+      requiredSkills: eventSkills[e.id] ?? [],
       optIns: optInsByEvent[e.id] ?? { interested: [], available: [], unavailable: [] },
     })),
-    assignments: assignments.map(a => ({
+    assignments: assignmentResult.rows.map((a: any) => ({
       id: a.id,
       eventId: a.eventId,
       profileId: a.profileId,
-      date: a.assignedDate.toISOString().slice(0, 10),
+      date: a.assignedDate?.slice(0, 10),
       status: a.status,
-      isAlternative: a.isAlternative,
+      isAlternative: !!a.isAlternative,
       shirtColor: a.shirtColor,
-      profileName: a.profile.name,
-      profileRoleTier: a.profile.roleTier,
-      eventName: a.event.name,
-      eventHostColor: a.event.hostColor,
+      profileName: a.profileName,
+      profileRoleTier: a.profileRoleTier,
+      eventName: a.eventName,
+      eventHostColor: a.eventHostColor,
     })),
   })
 }

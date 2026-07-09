@@ -4,16 +4,13 @@ import { PrismaClient } from '@prisma/client'
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { createClient } from '@libsql/client'
 
-const url = process.env.DATABASE_URL!
-const authToken = process.env.DATABASE_AUTH_TOKEN
+const tursoUrl = process.env.TURSO_URL
+const tursoAuthToken = process.env.TURSO_AUTH_TOKEN
 
 let db: PrismaClient
-if (url && url.startsWith('libsql://')) {
-  const libsql = createClient({ url, authToken })
+if (tursoUrl) {
+  const libsql = createClient({ url: tursoUrl, authToken: tursoAuthToken })
   const adapter = new PrismaLibSql(libsql)
-  // When using the adapter, Prisma still reads DATABASE_URL for the datasource
-  // block, but it's not actually used for connections. Set a valid placeholder.
-  process.env.DATABASE_URL = 'file:./db/placeholder.db'
   db = new PrismaClient({ adapter } as any)
 } else {
   db = new PrismaClient()

@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 
-// POST /api/auth/claim
-// Body: { token, name?, email, password }
-// Sets an httpOnly cookie with the user's id upon successful claim.
+// POST /api/auth/claim — claim an invite with password
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { token, name, email, password } = body as {
@@ -19,47 +17,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
   }
 
-  const user = await db.user.findUnique({ where: { inviteToken: token } })
-  if (!user) return NextResponse.json({ error: 'Invalid invite token' }, { status: 404 })
-  if (user.inviteExpiresAt && user.inviteExpiresAt < new Date()) {
+  const result = await db.execute({
+    sql: 'SELECT * FROM User WHERE inviteToken = ?',
+    args: [token],
+  })
+
+  if (result.rows.length === 0) {
+    return NextResponse.json({ error: 'Invalid invite token' }, { status: 404 })
+  }
+
+  const user = result.rows[0] as any
+  if (user.inviteExpiresAt && new Date(user.inviteExpiresAt) < new Date()) {
     return NextResponse.json({ error: 'Invite link has expired' }, { status: 410 })
   }
 
-  // Check email uniqueness if it's different from the current one
+  // Check email uniqueness
   if (email !== user.email) {
-    const existing = await db.user.findUnique({ where: { email } })
-    if (existing) {
+    const existing = await db.execute({ sql: 'SELECT id FROM User WHERE email = ?', args: [email] })
+    if (existing.rows.length > 0) {
       return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
     }
   }
 
   const passwordHash = await bcrypt.hash(password, 10)
-  const updates: Record<string, unknown> = {
-    claimedAt: new Date(),
-    passwordHash,
-    email,
-  }
-  if (name) updates.name = name
+  const updates: string[] = ['claimedAt = datetime(\'now\')', 'passwordHash = ?', 'email = ?']
+  const args: unknown[] = [passwordHash, email]
+  if (name) { updates.push('name = ?'); args.push(name) }
+  args.push(user.id)
 
-  const updated = await db.user.update({
-    where: { id: user.id },
-    data: updates,
-    include: { profile: true },
+  await db.execute({
+    sql: `UPDATE User SET ${updates.join(', ')} WHERE id = ?`,
+    args,
   })
 
   const res = NextResponse.json({
     user: {
-      id: updated.id,
-      name: updated.name,
-      email: updated.email,
-      role: updated.role,
-      profileId: updated.profileId,
+      id: user.id,
+      name: name || user.name,
+      email,
+      role: user.role,
+      profileId: user.profileId,
     },
   })
-  res.cookies.set('ra-user-id', updated.id, {
+  res.cookies.set('ra-user-id', user.id, {
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 30, // 30 days
+    maxAge: 60 * 60 * 24 * 30,
     path: '/',
   })
   return res
