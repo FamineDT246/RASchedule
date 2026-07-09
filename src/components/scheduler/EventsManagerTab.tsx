@@ -19,7 +19,7 @@ type EventRow = EventView & {
 }
 
 const HOST_COLOR_OPTIONS = ['teal', 'emerald', 'amber', 'pink', 'rose', 'slate']
-const STATUS_OPTIONS = ['Draft', 'Tentative', 'Confirmed', 'Cancelled']
+const STATUS_OPTIONS = ['Draft', 'Tentative', 'Confirmed', 'Cancelled', 'Archived']
 
 async function fetchEvents(): Promise<EventRow[]> {
   const r = await fetch('/api/events')
@@ -90,7 +90,7 @@ export function EventsManagerTab() {
                 label={status}
                 count={list.length}
                 labelClassName={EVENT_STATUS_COLOR[status]}
-                defaultOpen={status === 'Draft'}
+                defaultOpen={status === 'Draft' || status === 'Archived'}
               >
                 {list.map(ev => (
                   <EventListItem

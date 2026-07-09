@@ -26,14 +26,14 @@ export async function GET(req: NextRequest) {
     unavailableList: parseList(p.unavailable),
   }))
 
-  // Fetch events (exclude Draft unless includeDrafts=1)
+  // Fetch events (exclude Draft and Archived unless includeDrafts=1)
   const eventQuery = includeDrafts
     ? `SELECT * FROM Event WHERE 
        (startDate >= ? AND startDate <= ?) OR 
        (endDate >= ? AND endDate <= ?) OR 
        (startDate <= ? AND endDate >= ?) 
        ORDER BY startDate ASC`
-    : `SELECT * FROM Event WHERE status != 'Draft' AND (
+    : `SELECT * FROM Event WHERE status != 'Draft' AND status != 'Archived' AND (
        (startDate >= ? AND startDate <= ?) OR 
        (endDate >= ? AND endDate <= ?) OR 
        (startDate <= ? AND endDate >= ?) 

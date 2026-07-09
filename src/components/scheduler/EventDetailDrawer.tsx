@@ -7,13 +7,14 @@ import {
   SHIRT_COLORS,
   SHIRT_COLOR_SWATCH,
   EVENT_STATUS_COLOR,
+  isPastDate,
   type EventView,
   type AssignmentView,
   type ProfileView,
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import {
-  X, MapPin, Clock, Users, Calendar, GraduationCap, Tag, Trash2, Shield, Shirt, Star,
+  X, MapPin, Clock, Users, Calendar, GraduationCap, Tag, Trash2, Shield, Shirt, Star, Lock,
 } from 'lucide-react'
 
 type Props = {
@@ -36,10 +37,17 @@ export function EventDetailDrawer({
   const filled = primaryAssignments.length
   const needed = event.requiredInstructors
   const isFull = filled >= needed
+  const isPast = isPastDate(date)
 
   return (
     <div className="absolute inset-y-0 right-0 z-30 w-full sm:w-96 shadow-2xl border-l border-border/60 bg-card/95 backdrop-blur-md flex flex-col">
       <div className={cn('h-1', colors.bar)} />
+      {isPast && (
+        <div className="px-4 py-2 bg-zinc-500/10 border-b border-zinc-500/30 flex items-center gap-2 text-[11px] text-zinc-300">
+          <Lock className="h-3 w-3 shrink-0" />
+          Past date — assignments are locked (read only)
+        </div>
+      )}
       <div className="p-4 border-b border-border/60 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] text-muted-foreground">{event.code ?? 'No code'}</p>
@@ -125,6 +133,7 @@ export function EventDetailDrawer({
                   profile={profiles.find(p => p.id === a.profileId)}
                   onRemove={onRemove}
                   onUpdate={onUpdateAssignment}
+                  isPast={isPast}
                 />
               ))}
             </div>
@@ -145,6 +154,7 @@ export function EventDetailDrawer({
                     profile={profiles.find(p => p.id === a.profileId)}
                     onRemove={onRemove}
                     onUpdate={onUpdateAssignment}
+                    isPast={isPast}
                   />
                 ))}
               </div>
@@ -235,13 +245,14 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
 }
 
 function AssignmentRow({
-  assignment, event, profile, onRemove, onUpdate,
+  assignment, event, profile, onRemove, onUpdate, isPast,
 }: {
   assignment: AssignmentView
   event: EventView
   profile?: ProfileView
   onRemove: (id: string) => void
   onUpdate: (id: string, patch: { isAlternative?: boolean; shirtColor?: string | null }) => void
+  isPast?: boolean
 }) {
   return (
     <div
@@ -260,46 +271,59 @@ function AssignmentRow({
         <p className="text-[10px] text-muted-foreground">{assignment.profileRoleTier}</p>
       </div>
 
-      {/* Shirt color picker */}
-      <div className="flex items-center gap-0.5 shrink-0">
-        <Shirt className="h-3 w-3 text-muted-foreground" />
-        <select
-          value={assignment.shirtColor ?? ''}
-          onChange={e => onUpdate(assignment.id, { shirtColor: e.target.value || null })}
-          className="text-[10px] bg-transparent border-0 focus:outline-none cursor-pointer hover:text-foreground text-muted-foreground"
-          title="Shirt color for this day"
+      {/* Shirt color picker — disabled for past dates */}
+      {!isPast && (
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Shirt className="h-3 w-3 text-muted-foreground" />
+          <select
+            value={assignment.shirtColor ?? ''}
+            onChange={e => onUpdate(assignment.id, { shirtColor: e.target.value || null })}
+            className="text-[10px] bg-transparent border-0 focus:outline-none cursor-pointer hover:text-foreground text-muted-foreground"
+            title="Shirt color for this day"
+          >
+            <option value="">—</option>
+            {SHIRT_COLORS.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          {assignment.shirtColor && SHIRT_COLOR_SWATCH[assignment.shirtColor] && (
+            <span className={cn('h-3 w-3 rounded-full', SHIRT_COLOR_SWATCH[assignment.shirtColor])} />
+          )}
+        </div>
+      )}
+      {isPast && assignment.shirtColor && (
+        <div className="flex items-center gap-1 shrink-0 text-[10px] text-muted-foreground">
+          <Shirt className="h-3 w-3" />
+          {assignment.shirtColor}
+        </div>
+      )}
+
+      {/* Alt toggle — disabled for past dates */}
+      {!isPast && (
+        <button
+          onClick={() => onUpdate(assignment.id, { isAlternative: !assignment.isAlternative })}
+          className={cn(
+            'shrink-0 p-1 rounded',
+            assignment.isAlternative
+              ? 'text-amber-300 bg-amber-500/10'
+              : 'text-muted-foreground hover:text-amber-300 hover:bg-amber-500/10',
+          )}
+          title={assignment.isAlternative ? 'Make primary' : 'Make alternative'}
         >
-          <option value="">—</option>
-          {SHIRT_COLORS.map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-        {assignment.shirtColor && SHIRT_COLOR_SWATCH[assignment.shirtColor] && (
-          <span className={cn('h-3 w-3 rounded-full', SHIRT_COLOR_SWATCH[assignment.shirtColor])} />
-        )}
-      </div>
+          <Shield className="h-3.5 w-3.5" />
+        </button>
+      )}
 
-      {/* Alt toggle */}
-      <button
-        onClick={() => onUpdate(assignment.id, { isAlternative: !assignment.isAlternative })}
-        className={cn(
-          'shrink-0 p-1 rounded',
-          assignment.isAlternative
-            ? 'text-amber-300 bg-amber-500/10'
-            : 'text-muted-foreground hover:text-amber-300 hover:bg-amber-500/10',
-        )}
-        title={assignment.isAlternative ? 'Make primary' : 'Make alternative'}
-      >
-        <Shield className="h-3.5 w-3.5" />
-      </button>
-
-      <button
-        onClick={() => onRemove(assignment.id)}
-        className="shrink-0 p-1.5 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
-        title="Remove from event"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
+      {/* Remove — disabled for past dates */}
+      {!isPast && (
+        <button
+          onClick={() => onRemove(assignment.id)}
+          className="shrink-0 p-1.5 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
+          title="Remove from event"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   )
 }

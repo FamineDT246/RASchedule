@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   }
   const event = eventResult.rows[0] as any
 
-  if (event.status === 'Draft' || event.status === 'Cancelled') {
+  if (event.status === 'Draft' || event.status === 'Cancelled' || event.status === 'Archived') {
     return NextResponse.json({ error: `Cannot assign to a ${event.status} event` }, { status: 400 })
   }
 
@@ -34,9 +34,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let created = 0, existing = 0, conflicts = 0
+  // Block assignments on past dates
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Barbados',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+
+  let created = 0, existing = 0, conflicts = 0, skippedPast = 0
 
   for (const date of dates) {
+    // Skip past dates
+    if (date < today) {
+      skippedPast++
+      continue
+    }
+
     // Check if already assigned
     const existingResult = await db.execute({
       sql: 'SELECT id FROM Assignment WHERE eventId = ? AND profileId = ? AND assignedDate = ?',
@@ -61,5 +73,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ created, existing, conflicts })
+  return NextResponse.json({ created, existing, conflicts, skippedPast })
 }

@@ -8,6 +8,7 @@ import {
   formatPrettyDate,
   eventOnDate,
   todayInBarbados,
+  isPastDate,
   addDaysISO,
   type EventView,
   type AssignmentView,
@@ -59,6 +60,7 @@ export function CalendarGrid({
     const dayEvents = events.filter(e => eventOnDate(e, dateISO))
     const dayAssignments = assignments.filter(a => a.date === dateISO)
     const isToday = dateISO === todayISO
+    const isPast = isPastDate(dateISO)
     const weekday = formatWeekday(dateISO)
     const dayNum = formatDayNum(dateISO)
     return (
@@ -67,16 +69,21 @@ export function CalendarGrid({
         className={cn(
           'flex flex-col border-r border-border/40 last:border-r-0 min-w-0 overflow-y-auto',
           isToday && 'bg-emerald-500/[0.04]',
+          isPast && !isToday && 'bg-zinc-500/[0.03]',
         )}
         role="region"
-        aria-label={`${weekday} ${dayNum}`}
+        aria-label={`${weekday} ${dayNum}${isPast ? ' (past)' : ''}`}
       >
         <div className={cn(
           'p-2 border-b border-border/40 sticky top-0 backdrop-blur-sm bg-card/80 z-10',
           isToday && 'bg-emerald-500/10',
+          isPast && !isToday && 'bg-zinc-500/5',
         )}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{weekday}</span>
+            <span className={cn(
+              'text-[10px] uppercase tracking-wide',
+              isPast ? 'text-muted-foreground/50' : 'text-muted-foreground',
+            )}>{weekday}</span>
             <span className={cn(
               'text-sm font-semibold tabular-nums',
               isToday && 'text-emerald-400',

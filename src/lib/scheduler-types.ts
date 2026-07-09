@@ -163,12 +163,12 @@ export const EVENT_STATUS_COLOR: Record<string, string> = {
   Tentative: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
   Confirmed: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
   Cancelled: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+  Archived:  'bg-sky-500/15 text-sky-300 border-sky-500/30',
 }
 
 // ---------- Date helpers ----------
 
 // All date comparisons use America/Barbados time (AST, UTC-4).
-// The boss and instructors are all in Barbados, so "today" should be Barbados-today.
 const BBD_TZ = 'America/Barbados'
 
 export function todayInBarbados(): string {
@@ -176,7 +176,22 @@ export function todayInBarbados(): string {
     timeZone: BBD_TZ,
     year: 'numeric', month: '2-digit', day: '2-digit',
   })
-  return fmt.format(new Date()) // en-CA gives YYYY-MM-DD
+  return fmt.format(new Date())
+}
+
+// Is this date in the past (before today in Barbados)?
+export function isPastDate(iso: string): boolean {
+  return iso < todayInBarbados()
+}
+
+// Is this date today in Barbados?
+export function isToday(iso: string): boolean {
+  return iso === todayInBarbados()
+}
+
+// Is this event fully in the past (endDate is before today)?
+export function isEventPast(endDate: string): boolean {
+  return endDate < todayInBarbados()
 }
 
 export function isoWeekdaysInRange(fromISO: string, toISO: string): string[] {
@@ -240,9 +255,10 @@ export function formatTime(t: string): string {
 
 // Does the event fall on the given date?
 // Honors specificDates if set (event only runs on those dates).
+// Archived events don't show on the calendar (they're in the Events tab archive).
 export function eventOnDate(ev: EventView, dateISO: string): boolean {
-  // Draft events never show on the calendar regardless of dates
-  if (ev.status === 'Draft') return false
+  // Draft and Archived events never show on the calendar
+  if (ev.status === 'Draft' || ev.status === 'Archived') return false
   // Cancelled events still show (greyed out) so the boss can see history
   if (ev.specificDatesList && ev.specificDatesList.length > 0) {
     return ev.specificDatesList.includes(dateISO)

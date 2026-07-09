@@ -43,6 +43,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing eventId, profileId or date' }, { status: 400 })
   }
 
+  // Block assignments on past dates
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Barbados',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+  if (date < today) {
+    return NextResponse.json(
+      { error: 'Cannot assign to a past date. That day has already passed.' },
+      { status: 400 },
+    )
+  }
+
   const id = crypto.randomUUID()
   await db.execute({
     sql: `INSERT INTO Assignment (id, eventId, profileId, assignedDate, status, isAlternative, shirtColor, createdAt, updatedAt)

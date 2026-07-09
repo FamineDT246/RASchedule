@@ -5,6 +5,7 @@ import {
   hostColor,
   formatTime,
   SHIRT_COLOR_SWATCH,
+  isPastDate,
   type EventView,
   type AssignmentView,
 } from '@/lib/scheduler-types'
@@ -30,11 +31,12 @@ export function DroppableEventCard({
   event, date, assignments, selected, onSelect, showMultiDayHandle,
   tapAssignMode, highlightTapTarget,
 }: Props) {
-  // Per-day drop target (disabled in tap mode)
+  const isPast = isPastDate(date)
+  // Per-day drop target (disabled in tap mode or for past dates)
   const { setNodeRef, isOver } = useDroppable({
     id: `drop-${event.id}-${date}`,
     data: { type: 'event-drop', eventId: event.id, date },
-    disabled: tapAssignMode,
+    disabled: tapAssignMode || isPast,
   })
 
   const primaryCount = assignments.filter(a => !a.isAlternative).length
@@ -55,20 +57,22 @@ export function DroppableEventCard({
       ref={setNodeRef}
       onClick={() => onSelect(event.id, date)}
       className={cn(
-        'relative rounded-lg border bg-card/95 backdrop-blur-sm transition-all cursor-pointer',
-        'hover:shadow-md hover:border-foreground/30',
+        'relative rounded-lg border bg-card/95 backdrop-blur-sm transition-all',
+        isPast ? 'cursor-default opacity-60' : 'cursor-pointer hover:shadow-md hover:border-foreground/30',
         selected && 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-background',
         isOver && 'ring-2 ring-emerald-400 scale-[1.02]',
-        highlightTapTarget && 'ring-2 ring-emerald-400/60 animate-pulse',
+        highlightTapTarget && !isPast && 'ring-2 ring-emerald-400/60 animate-pulse cursor-pointer',
         isCancelled
-          ? 'border-rose-500/40 opacity-60'
-          : isFull
-            ? 'border-emerald-500/40'
-            : 'border-amber-500/30',
+          ? 'border-rose-500/40'
+          : isPast
+            ? 'border-zinc-600/40'
+            : isFull
+              ? 'border-emerald-500/40'
+              : 'border-amber-500/30',
       )}
       role="button"
       tabIndex={0}
-      aria-label={`${event.name} on ${date}, ${filled} of ${needed} instructors assigned${altCount ? `, ${altCount} alternatives` : ''}${optInTotal ? `, ${optInTotal} opt-ins` : ''}${highlightTapTarget ? '. Tap to assign selected instructor' : ''}`}
+      aria-label={`${event.name} on ${date}, ${filled} of ${needed} instructors assigned${altCount ? `, ${altCount} alternatives` : ''}${optInTotal ? `, ${optInTotal} opt-ins` : ''}${isPast ? '. Past date — read only' : ''}${highlightTapTarget && !isPast ? '. Tap to assign selected instructor' : ''}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
@@ -76,7 +80,7 @@ export function DroppableEventCard({
         }
       }}
     >
-      <div className={cn('h-1 rounded-t-lg', isCancelled ? 'bg-rose-500' : colors.bar)} />
+      <div className={cn('h-1 rounded-t-lg', isCancelled ? 'bg-rose-500' : isPast ? 'bg-zinc-600' : colors.bar)} />
 
       <div className="p-2.5 space-y-2">
         <div className="flex items-start justify-between gap-1.5">
@@ -160,7 +164,7 @@ export function DroppableEventCard({
           ) : (
             <span className="text-[9px] text-muted-foreground/50">No opt-ins yet</span>
           )}
-          {showMultiDayHandle && <MultiDayHandle eventId={event.id} />}
+          {showMultiDayHandle && !isPast && <MultiDayHandle eventId={event.id} />}
         </div>
       </div>
     </div>
