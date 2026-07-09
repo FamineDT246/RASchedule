@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { DraggableInstructor } from './DraggableInstructor'
 import type { ProfileView } from '@/lib/scheduler-types'
-import { Search, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Filter, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { roleColor } from '@/lib/scheduler-types'
 
@@ -11,11 +11,15 @@ type Props = {
   profiles: ProfileView[]
   collapsed: boolean
   onToggleCollapsed: () => void
+  // Mobile tap-to-assign: when set, tapping an instructor selects them instead of dragging
+  tapSelectMode?: boolean
+  selectedProfileId?: string | null
+  onTapProfile?: (profileId: string) => void
 }
 
 const ROLE_TIERS = ['Chief', 'Senior', 'Junior', 'Assistant', 'Intern'] as const
 
-export function RosterRail({ profiles, collapsed, onToggleCollapsed }: Props) {
+export function RosterRail({ profiles, collapsed, onToggleCollapsed, tapSelectMode, selectedProfileId, onTapProfile }: Props) {
   const [query, setQuery] = useState('')
   const [activeTiers, setActiveTiers] = useState<Set<string>>(new Set())
   const [activeSkills, setActiveSkills] = useState<Set<string>>(new Set())
@@ -150,7 +154,37 @@ export function RosterRail({ profiles, collapsed, onToggleCollapsed }: Props) {
 
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {filtered.map(p => (
-          <DraggableInstructor key={p.id} profile={p} />
+          tapSelectMode ? (
+            <button
+              key={p.id}
+              onClick={() => onTapProfile?.(p.id)}
+              className={cn(
+                'w-full text-left rounded-lg border bg-card transition-all p-3 flex items-center gap-2',
+                selectedProfileId === p.id
+                  ? 'border-emerald-400 ring-2 ring-emerald-400/40 bg-emerald-500/10'
+                  : 'border-border/60 hover:border-foreground/30',
+              )}
+              aria-pressed={selectedProfileId === p.id}
+            >
+              <div className="h-9 w-9 rounded-md bg-gradient-to-br from-zinc-700 to-zinc-900 text-white text-sm font-semibold flex items-center justify-center shrink-0">
+                {p.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate">{p.name}</p>
+                <span className={cn(
+                  'inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium border',
+                  roleColor(p.roleTier),
+                )}>
+                  {p.roleTier}
+                </span>
+              </div>
+              {selectedProfileId === p.id && (
+                <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+              )}
+            </button>
+          ) : (
+            <DraggableInstructor key={p.id} profile={p} />
+          )
         ))}
         {filtered.length === 0 && (
           <div className="text-center text-xs text-muted-foreground p-6">
@@ -159,9 +193,13 @@ export function RosterRail({ profiles, collapsed, onToggleCollapsed }: Props) {
         )}
       </div>
 
-      <div className="p-2 border-t border-border/60 text-[10px] text-muted-foreground text-center">
-        Drag a card onto an event
-      </div>
+      {tapSelectMode && (
+        <div className="p-2 border-t border-border/60 text-[10px] text-muted-foreground text-center">
+          {selectedProfileId
+            ? 'Tap an event slot to assign'
+            : 'Tap an instructor to select them'}
+        </div>
+      )}
     </aside>
   )
 }

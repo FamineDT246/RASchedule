@@ -20,15 +20,21 @@ type Props = {
   /** When true, this card renders as a "drop on all days" target (used on the first
    *  day a multi-day event appears in the current week). */
   showMultiDayHandle?: boolean
+  // Mobile tap-to-assign: when true, card is not droppable (tap only)
+  tapAssignMode?: boolean
+  // When true + tapAssignMode, highlight this card as a valid tap target
+  highlightTapTarget?: boolean
 }
 
 export function DroppableEventCard({
   event, date, assignments, selected, onSelect, showMultiDayHandle,
+  tapAssignMode, highlightTapTarget,
 }: Props) {
-  // Per-day drop target
+  // Per-day drop target (disabled in tap mode)
   const { setNodeRef, isOver } = useDroppable({
     id: `drop-${event.id}-${date}`,
     data: { type: 'event-drop', eventId: event.id, date },
+    disabled: tapAssignMode,
   })
 
   const primaryCount = assignments.filter(a => !a.isAlternative).length
@@ -53,6 +59,7 @@ export function DroppableEventCard({
         'hover:shadow-md hover:border-foreground/30',
         selected && 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-background',
         isOver && 'ring-2 ring-emerald-400 scale-[1.02]',
+        highlightTapTarget && 'ring-2 ring-emerald-400/60 animate-pulse',
         isCancelled
           ? 'border-rose-500/40 opacity-60'
           : isFull
@@ -61,7 +68,7 @@ export function DroppableEventCard({
       )}
       role="button"
       tabIndex={0}
-      aria-label={`${event.name} on ${date}, ${filled} of ${needed} instructors assigned${altCount ? `, ${altCount} alternatives` : ''}${optInTotal ? `, ${optInTotal} opt-ins` : ''}`}
+      aria-label={`${event.name} on ${date}, ${filled} of ${needed} instructors assigned${altCount ? `, ${altCount} alternatives` : ''}${optInTotal ? `, ${optInTotal} opt-ins` : ''}${highlightTapTarget ? '. Tap to assign selected instructor' : ''}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()

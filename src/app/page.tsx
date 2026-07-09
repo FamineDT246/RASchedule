@@ -21,7 +21,8 @@ import { ConflictSummaryTab } from '@/components/scheduler/ConflictSummaryTab'
 import { PrintLayout } from '@/components/scheduler/PrintLayout'
 import { LoginForm } from '@/components/scheduler/LoginForm'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
-import { ChevronDown, KeyRound, LogOut } from 'lucide-react'
+import { ChevronDown, KeyRound, LogOut, X } from 'lucide-react'
+import { useIsMobile } from '@/hooks/use-is-mobile'
 
 import {
   startOfWeekISO, addDaysISO, formatShortDate, todayInBarbados,
@@ -82,6 +83,8 @@ export default function Home() {
   const [reseeding, setReseeding] = useState(false)
   const [printMode, setPrintMode] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
+  const [tapSelectedProfileId, setTapSelectedProfileId] = useState<string | null>(null)
+  const isMobile = useIsMobile()
 
   // Print handler — renders PrintLayout to a portal, triggers window.print(), then cleans up
   const handlePrint = useCallback(() => {
@@ -119,12 +122,16 @@ export default function Home() {
     enabled: !user || user.role === 'admin', // instructors use a different view
   })
 
+  // On mobile, we use tap-to-assign instead of drag-drop.
+  // The sensors are always created (hooks rule), but on mobile we set an impossible
+  // activation distance so drag never triggers.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: isMobile ? 9999 : 8 },
+    }),
     useSensor(TouchSensor, {
-      // Require a deliberate press-and-hold before drag activates on touch
-      // so scrolling still works naturally
       activationConstraint: { delay: 250, tolerance: 8 },
+      disabled: isMobile,
     }),
   )
 
@@ -280,6 +287,22 @@ export default function Home() {
     },
     onError: (e: any) => toast.error(e.message || 'Failed to change password'),
   })
+
+  // Tap-to-assign (mobile): when an instructor is selected and an event slot is tapped,
+  // assign the instructor to that event+date.
+  const handleTapAssign = useCallback((eventId: string, date: string) => {
+    if (!tapSelectedProfileId) {
+      // No instructor selected — just open the event drawer
+      setSelected({ eventId, date })
+      return
+    }
+    assignMutation.mutate({
+      eventId,
+      profileId: tapSelectedProfileId,
+      date,
+    })
+    setTapSelectedProfileId(null)
+  }, [tapSelectedProfileId, assignMutation])
 
   // ---- dnd handlers ----
   const onDragStart = (e: { active: { data: { current: any } } }) => {
@@ -503,17 +526,22 @@ export default function Home() {
                 profiles={data.profiles}
                 collapsed={rosterCollapsed}
                 onToggleCollapsed={() => setRosterCollapsed(c => !c)}
+                tapSelectMode={isMobile}
+                selectedProfileId={tapSelectedProfileId}
+                onTapProfile={(id) => setTapSelectedProfileId(id === tapSelectedProfileId ? null : id)}
               />
               <CalendarGrid
                 weekStartISO={effectiveWeekStart}
                 events={weekEvents}
                 assignments={weekAssignments}
                 selected={selected}
-                onSelect={(eventId, date) => setSelected({ eventId, date })}
+                onSelect={isMobile ? handleTapAssign : (eventId, date) => setSelected({ eventId, date })}
                 onPrevWeek={() => setWeek(w => addDaysISO(w, -7))}
                 onNextWeek={() => setWeek(w => addDaysISO(w, 7))}
                 onJumpToday={() => setWeek(startOfWeekISO(todayInBarbados()))}
                 onPrint={handlePrint}
+                tapAssignMode={isMobile}
+                hasSelectedProfile={!!tapSelectedProfileId}
               />
               <AnimatePresence>
                 {selectedEvent && (
@@ -537,6 +565,30 @@ export default function Home() {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* Mobile: floating selected-instructor bar */}
+              {isMobile && tapSelectedProfileId && (
+                <div className="absolute bottom-0 left-0 right-0 z-20 bg-card/95 backdrop-blur-md border-t border-border/60 p-3 flex items-center justify-between gap-2 shadow-lg">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-8 w-8 rounded-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-xs font-semibold flex items-center justify-center shrink-0">
+                      {data.profiles.find(p => p.id === tapSelectedProfileId)?.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">
+                        {data.profiles.find(p => p.id === tapSelectedProfileId)?.name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Tap an event to assign</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setTapSelectedProfileId(null)}
+                    className="p-2 rounded-md hover:bg-muted text-muted-foreground shrink-0"
+                    aria-label="Cancel selection"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </>
           )}
 

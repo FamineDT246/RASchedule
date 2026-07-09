@@ -26,6 +26,9 @@ type Props = {
   onNextWeek: () => void
   onJumpToday: () => void
   onPrint: () => void
+  // Mobile tap-to-assign: highlights event slots when an instructor is selected
+  tapAssignMode?: boolean
+  hasSelectedProfile?: boolean
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -42,6 +45,7 @@ function weekDates(weekStartISO: string): string[] {
 
 export function CalendarGrid({
   weekStartISO, events, assignments, selected, onSelect, onPrevWeek, onNextWeek, onJumpToday, onPrint,
+  tapAssignMode, hasSelectedProfile,
 }: Props) {
   const dates = weekDates(weekStartISO)
   const todayISO = todayInBarbados()
@@ -101,7 +105,9 @@ export function CalendarGrid({
                 assignments={evAssignments}
                 selected={!!isSelected}
                 onSelect={(eventId, date) => onSelect(eventId, date)}
-                showMultiDayHandle={showMultiDayHandle}
+                showMultiDayHandle={showMultiDayHandle && !tapAssignMode}
+                tapAssignMode={tapAssignMode}
+                highlightTapTarget={tapAssignMode && hasSelectedProfile}
               />
             )
           })}
