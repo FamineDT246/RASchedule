@@ -1,8 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Robot Adventure — Camp & Workshop Scheduler
+// SQLite-backed (zero external DB, no free-tier limit issues)
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +10,85 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ---------- Staff ----------
+model Profile {
+  id           String   @id @default(cuid())
+  name         String
+  sex          String?  // "Male" | "Female"
+  role         String   // e.g. "Senior Instructor", "Junior / Lead Instructor", "Intern"
+  roleTier    String   // derived: "Chief" | "Senior" | "Junior" | "Assistant" | "Intern"
+  skills       String   // comma-separated, e.g. "Complex STEM,Robotics,Coding"
+  shirtSize   String?
+  shirtType   String?  // "Male" | "Female"
+  shirtColors String?  // comma-separated preferred colors
+  available   String?  // human-readable availability window
+  unavailable String?  // comma-separated unavailable dates (YYYY-MM-DD)
+  contractSigned Boolean @default(false)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignments Assignment[]
+
+  @@index([roleTier])
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ---------- Camps / Workshops ----------
+model Event {
+  id                 String   @id @default(cuid())
+  code               String?  // e.g. "WSB-1", "MEdT-3"
+  name               String
+  host               String   // organizing body
+  location           String?
+  description        String?
+  lengthDays         Int?     // total span in days
+  startDate          DateTime
+  endDate            DateTime
+  startTime          String   // "09:00"
+  endTime            String   // "15:00"
+  status             String   @default("Confirmed") // "Confirmed" | "Tentative" | "Cancelled"
+  ageRange           String?  // e.g. "10-16"
+  participantCount   Int?
+  requiredInstructors Int    @default(2)
+  notes              String?
+  hostColor          String   @default("slate") // tailwind color hint for the host
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  skills    EventSkill[]
+  assignments Assignment[]
+
+  @@index([startDate])
+  @@index([host])
+}
+
+// ---------- Required skills per event ----------
+model EventSkill {
+  id        String @id @default(cuid())
+  eventId   String
+  skillName String
+  event     Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, skillName])
+  @@index([skillName])
+}
+
+// ---------- Assignment join table ----------
+model Assignment {
+  id           String   @id @default(cuid())
+  eventId      String
+  profileId    String
+  assignedDate DateTime // the specific day the person is working this event
+  status       String   @default("Assigned") // "Assigned" | "Confirmed" | "Declined"
+  overrideFlag Boolean  @default(false) // true if boss overrode a soft warning
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, profileId, assignedDate])
+  @@index([profileId, assignedDate])
+  @@index([eventId, assignedDate])
 }

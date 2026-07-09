@@ -120,3 +120,25 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Thin custom scrollbars for calendar day columns and roster rail */
+@layer utilities {
+  .overflow-y-auto::-webkit-scrollbar,
+  .overflow-x-auto::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .overflow-y-auto::-webkit-scrollbar-thumb,
+  .overflow-x-auto::-webkit-scrollbar-thumb {
+    background: oklch(0.4 0 0);
+    border-radius: 3px;
+  }
+  .overflow-y-auto::-webkit-scrollbar-thumb:hover,
+  .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.5 0 0);
+  }
+  .overflow-y-auto::-webkit-scrollbar-track,
+  .overflow-x-auto::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
