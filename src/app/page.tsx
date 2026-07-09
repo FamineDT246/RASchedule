@@ -22,7 +22,7 @@ import { PrintLayout } from '@/components/scheduler/PrintLayout'
 import { LoginForm } from '@/components/scheduler/LoginForm'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
 import { PWAInstallPrompt } from '@/components/scheduler/PWAInstallPrompt'
-import { ChevronDown, KeyRound, LogOut, X } from 'lucide-react'
+import { ChevronDown, KeyRound, LogOut, User, X } from 'lucide-react'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 
 import {
@@ -663,32 +663,38 @@ function InstructorTopBar({ user, onLogout, onChangePassword }: {
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   return (
-    <header className="border-b border-border/60 bg-card/40 px-4 py-2.5 flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xs">
+    <header className="border-b border-border/60 bg-card/40 px-3 sm:px-4 py-2 flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
           RA
         </div>
-        <div>
-          <h1 className="text-sm font-semibold leading-tight">Robot Adventures — My Schedule</h1>
-          <p className="text-[10px] text-muted-foreground">
-            Signed in as {user.name}{user.email ? ` · ${user.email}` : ''}
+        <div className="min-w-0">
+          <h1 className="text-xs sm:text-sm font-semibold leading-tight truncate">
+            Hi {user.name.split(' ')[0]}
+          </h1>
+          <p className="text-[9px] sm:text-[10px] text-muted-foreground truncate">
+            {user.profile ? 'Opt in to events below' : 'No profile linked'}
           </p>
         </div>
       </div>
-      <div className="relative">
+      <div className="relative shrink-0">
         <button
           onClick={() => setMenuOpen(o => !o)}
-          className="px-2.5 py-1 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground flex items-center gap-1.5"
+          className="px-2 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground flex items-center gap-1 min-h-[32px]"
           aria-label="Account menu"
           aria-expanded={menuOpen}
         >
-          Account
+          <User className="h-3.5 w-3.5" />
           <ChevronDown className="h-3 w-3" />
         </button>
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
             <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-card border border-border/60 rounded-md shadow-lg py-1">
+              <div className="px-3 py-2 border-b border-border/40">
+                <p className="text-xs font-medium truncate">{user.name}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+              </div>
               <button
                 onClick={() => { setMenuOpen(false); onChangePassword() }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center gap-2"

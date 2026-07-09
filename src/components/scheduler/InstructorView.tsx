@@ -85,16 +85,11 @@ export function InstructorView({ user }: { user: AuthUser }) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold">
-            Hi {user.name.split(' ')[0]} — here&apos;s your schedule
-          </h2>
-          <p className="text-[10px] text-muted-foreground">
-            Opt in to events you&apos;d like to work. {user.profile ? 'The boss will see your preferences when assigning.' : 'No staff profile linked — ask the boss to link one.'}
-          </p>
-        </div>
-        <div className="flex rounded-md border border-border/60 overflow-hidden shrink-0">
+      <div className="px-3 sm:px-4 py-2 border-b border-border/60 bg-card/40 flex items-center justify-between gap-2">
+        <p className="text-[10px] text-muted-foreground truncate hidden sm:block">
+          Opt in to events you&apos;d like to work
+        </p>
+        <div className="flex rounded-md border border-border/60 overflow-hidden shrink-0 ml-auto">
           <button
             onClick={() => setViewMode('carousel')}
             className={cn(
