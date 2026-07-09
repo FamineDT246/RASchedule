@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
+import { useSyncExternalStore } from 'react'
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
@@ -47,13 +48,25 @@ export default function Home() {
   const { data: meData, refetch: refetchMe } = useQuery({ queryKey: ['me'], queryFn: fetchMe })
   const user = meData?.user ?? null
 
-  // Token claim flow — read once at mount, no useEffect needed
-  const [claimToken, setClaimToken] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
-    const url = new URL(window.location.href)
-    const t = url.searchParams.get('token')
-    return t
-  })
+  // Token claim flow — read on client only to avoid hydration mismatch.
+  // useSyncExternalStore returns empty string on server, real value on client.
+  const [tokenOverride, setTokenOverride] = useState<string | null>(null)
+  const clientToken = useSyncExternalStore(
+    () => () => {},
+    () => {
+      if (typeof window === 'undefined') return ''
+      if (tokenOverride !== null) return tokenOverride
+      const url = new URL(window.location.href)
+      return url.searchParams.get('token') ?? ''
+    },
+    () => '',
+  )
+  const claimToken = clientToken || null
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  )
 
   // Active tab
   const [tab, setTab] = useState<Tab>('scheduler')
@@ -312,7 +325,8 @@ export default function Home() {
 
   // ---- CLAIM FLOW ----
   // If the URL has ?token=..., show the claim form (or instructor view if already claimed).
-  if (claimToken) {
+  // Wait for mount to avoid hydration mismatch.
+  if (mounted && claimToken) {
     if (user && user.role === 'instructor') {
       // Already claimed — show instructor view
       return (
@@ -326,7 +340,7 @@ export default function Home() {
       <ClaimInviteForm
         token={claimToken}
         onClaimed={() => {
-          setClaimToken(null)
+          setTokenOverride('')
           if (typeof window !== 'undefined') {
             const url = new URL(window.location.href)
             url.searchParams.delete('token')
@@ -339,7 +353,8 @@ export default function Home() {
   }
 
   // ---- INSTRUCTOR VIEW ----
-  if (user && user.role === 'instructor') {
+  // Only show after mount to avoid hydration mismatch (user is fetched async)
+  if (mounted && user && user.role === 'instructor') {
     return (
       <div className="h-screen flex flex-col bg-background">
         <InstructorTopBar user={user} onLogout={() => logoutMutation.mutate()} />

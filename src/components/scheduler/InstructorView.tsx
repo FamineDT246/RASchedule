@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import {
   Calendar, Clock, MapPin, Users, Check, X, Star, AlertCircle, Shield, Shirt,
+  ChevronLeft, ChevronRight, Plus, Trash2,
 } from 'lucide-react'
 
 type OptInMap = Record<string, { status: string; note: string | null }>
@@ -31,10 +32,18 @@ async function fetchMyOptIns(): Promise<OptInMap> {
   return map
 }
 
+async function fetchMyProfile() {
+  const profileId = 'me' // The API will use the cookie to find the user's profile
+  const r = await fetch('/api/profiles/me')
+  if (!r.ok) return null
+  return r.json()
+}
+
 export function InstructorView({ user }: { user: AuthUser }) {
   const qc = useQueryClient()
   const { data } = useQuery({ queryKey: ['schedule'], queryFn: fetchSchedule })
   const { data: optIns } = useQuery({ queryKey: ['my-opt-ins'], queryFn: fetchMyOptIns })
+  const { data: myProfile } = useQuery({ queryKey: ['my-profile'], queryFn: fetchMyProfile })
 
   const optInMutation = useMutation({
     mutationFn: async (args: { eventId: string; status: string }) => {
@@ -83,160 +92,341 @@ export function InstructorView({ user }: { user: AuthUser }) {
       </div>
 
       <div className="flex-1 overflow-y-auto" role="region" aria-label="My schedule and opt-ins">
-        <div className="p-4 grid gap-6 md:grid-cols-2">
-          {/* My schedule */}
-          <section>
-            <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              My assignments ({myAssignments.length})
-            </h3>
-            <div className="space-y-2">
-              {myAssignments.length === 0 && (
-                <div className="text-xs text-muted-foreground p-4 border border-dashed border-border/60 rounded-md text-center">
-                  {user.profile
-                    ? 'You have no assignments yet. Opt in to events below to let the boss know you\'re interested.'
-                    : 'No staff profile linked. Ask the boss to link your account to a staff profile so you can be assigned.'}
+        <div className="p-4 space-y-6">
+          {/* My assignments carousel */}
+          <Carousel
+            title="My Assignments"
+            icon={<Calendar className="h-3 w-3" />}
+            count={myAssignments.length}
+            emptyMessage={user.profile
+              ? 'You have no assignments yet. Opt in to events below to let the boss know you\'re interested.'
+              : 'No staff profile linked. Ask the boss to link your account to a staff profile so you can be assigned.'}
+          >
+            {myAssignments.map(a => {
+              const ev = data?.events.find((e: EventView) => e.id === a.eventId)
+              if (!ev) return null
+              const colors = hostColor(ev.hostColor)
+              return (
+                <div key={a.id} className={cn(
+                  'min-w-[260px] sm:min-w-[280px] rounded-lg border p-3 flex flex-col gap-2',
+                  a.isAlternative
+                    ? 'border-amber-500/30 border-dashed bg-amber-500/5'
+                    : 'border-border/60 bg-card/80',
+                )}>
+                  <div className={cn('h-1 rounded-full', colors.bar)} />
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate flex-1">{ev.name}</p>
+                    {a.isAlternative && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 flex items-center gap-0.5 shrink-0">
+                        <Shield className="h-2.5 w-2.5" /> Alt
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground flex items-center gap-2 flex-wrap">
+                    <span className="flex items-center gap-0.5">
+                      <Calendar className="h-2.5 w-2.5" />
+                      {formatPrettyDate(a.date)}
+                    </span>
+                    <span className="flex items-center gap-0.5">
+                      <Clock className="h-2.5 w-2.5" />
+                      {formatTime(ev.startTime)}
+                    </span>
+                  </div>
+                  {ev.location && (
+                    <div className="text-[10px] text-muted-foreground flex items-center gap-0.5 truncate">
+                      <MapPin className="h-2.5 w-2.5" />
+                      {ev.location}
+                    </div>
+                  )}
+                  {a.shirtColor && (
+                    <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Shirt className="h-2.5 w-2.5" />
+                      Shirt: <span className="text-foreground font-medium">{a.shirtColor}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-              {myAssignments.map(a => {
-                const ev = data?.events.find((e: EventView) => e.id === a.eventId)
-                if (!ev) return null
-                const colors = hostColor(ev.hostColor)
-                return (
-                  <div key={a.id} className={cn(
-                    'rounded-lg border p-3 flex items-center gap-3',
-                    a.isAlternative
-                      ? 'border-amber-500/30 border-dashed bg-amber-500/5'
-                      : 'border-border/60 bg-card/80',
-                  )}>
-                    <div className={cn('h-10 w-1 rounded-full shrink-0', colors.bar)} />
+              )
+            })}
+          </Carousel>
+
+          {/* Opt-in events carousel */}
+          <Carousel
+            title="Events You Can Opt In To"
+            icon={<Star className="h-3 w-3" />}
+            count={optableEvents.length}
+            emptyMessage="No events available for opt-in right now."
+          >
+            {optableEvents.map(ev => {
+              const colors = hostColor(ev.hostColor)
+              const optIn = optIns?.[ev.id]
+              const isAssigned = myAssignments.some(a => a.eventId === ev.id)
+              return (
+                <div key={ev.id} className="min-w-[260px] sm:min-w-[280px] rounded-lg border border-border/60 bg-card/80 p-3 flex flex-col gap-2">
+                  <div className={cn('h-1 rounded-full', colors.bar)} />
+                  <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">{ev.name}</p>
-                        {a.isAlternative && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 flex items-center gap-0.5">
-                            <Shield className="h-2.5 w-2.5" /> Alt
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-sm font-medium truncate">{ev.name}</p>
                       <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
                         <span className="flex items-center gap-0.5">
                           <Calendar className="h-2.5 w-2.5" />
-                          {formatPrettyDate(a.date)}
+                          {formatShortDate(ev.startDate)}{ev.endDate !== ev.startDate && ` – ${formatShortDate(ev.endDate)}`}
                         </span>
                         <span className="flex items-center gap-0.5">
                           <Clock className="h-2.5 w-2.5" />
-                          {formatTime(ev.startTime)} – {formatTime(ev.endTime)}
+                          {formatTime(ev.startTime)}
                         </span>
-                        {ev.location && (
-                          <span className="flex items-center gap-0.5">
-                            <MapPin className="h-2.5 w-2.5" />
-                            {ev.location}
-                          </span>
-                        )}
+                        <span className="flex items-center gap-0.5">
+                          <Users className="h-2.5 w-2.5" />
+                          {ev.requiredInstructors}
+                        </span>
+                        <span className={cn('px-1.5 py-0.5 rounded border', EVENT_STATUS_COLOR[ev.status] ?? EVENT_STATUS_COLOR.Confirmed)}>
+                          {ev.status}
+                        </span>
                       </div>
                     </div>
-                    {a.shirtColor && (
-                      <div className="shrink-0 text-right">
-                        <div className="text-[9px] text-muted-foreground uppercase">Shirt</div>
-                        <div className="text-xs font-medium">{a.shirtColor}</div>
-                      </div>
-                    )}
                   </div>
-                )
-              })}
-            </div>
-          </section>
+                  {ev.location && (
+                    <div className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                      <MapPin className="h-2.5 w-2.5" />
+                      {ev.location}
+                    </div>
+                  )}
+                  {ev.description && (
+                    <p className="text-[11px] text-muted-foreground line-clamp-2">{ev.description}</p>
+                  )}
 
-          {/* Opt-in list */}
-          <section>
-            <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1">
-              <Star className="h-3 w-3" />
-              Events you can opt in to ({optableEvents.length})
-            </h3>
-            <div className="space-y-2">
-              {optableEvents.length === 0 && (
-                <div className="text-xs text-muted-foreground p-4 border border-dashed border-border/60 rounded-md text-center">
-                  No events available for opt-in right now.
+                  {isAssigned ? (
+                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-1">
+                      <Check className="h-3 w-3" />
+                      You&apos;re assigned to this event
+                    </div>
+                  ) : (
+                    <div className="flex gap-1.5 mt-1">
+                      <OptInButton
+                        active={optIn?.status === 'interested'}
+                        color="active:bg-teal-500/20 bg-teal-500/10 text-teal-300 border-teal-500/40"
+                        onClick={() => optInMutation.mutate({ eventId: ev.id, status: 'interested' })}
+                        icon={<Star className="h-3 w-3" />}
+                        label="Interested"
+                      />
+                      <OptInButton
+                        active={optIn?.status === 'available'}
+                        color="active:bg-emerald-500/20 bg-emerald-500/10 text-emerald-300 border-emerald-500/40"
+                        onClick={() => optInMutation.mutate({ eventId: ev.id, status: 'available' })}
+                        icon={<Check className="h-3 w-3" />}
+                        label="Available"
+                      />
+                      <OptInButton
+                        active={optIn?.status === 'unavailable'}
+                        color="active:bg-rose-500/20 bg-rose-500/10 text-rose-300 border-rose-500/40"
+                        onClick={() => optInMutation.mutate({ eventId: ev.id, status: 'unavailable' })}
+                        icon={<X className="h-3 w-3" />}
+                        label="Can&apos;t"
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-              {optableEvents.map(ev => {
-                const colors = hostColor(ev.hostColor)
-                const optIn = optIns?.[ev.id]
-                const isAssigned = myAssignments.some(a => a.eventId === ev.id)
-                return (
-                  <div key={ev.id} className="rounded-lg border border-border/60 bg-card/80 p-3">
-                    <div className="flex items-start gap-2">
-                      <div className={cn('h-8 w-1 rounded-full shrink-0 mt-1', colors.bar)} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{ev.name}</p>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
-                          <span className="flex items-center gap-0.5">
-                            <Calendar className="h-2.5 w-2.5" />
-                            {formatShortDate(ev.startDate)}{ev.endDate !== ev.startDate && ` – ${formatShortDate(ev.endDate)}`}
-                          </span>
-                          <span className="flex items-center gap-0.5">
-                            <Clock className="h-2.5 w-2.5" />
-                            {formatTime(ev.startTime)}
-                          </span>
-                          <span className="flex items-center gap-0.5">
-                            <Users className="h-2.5 w-2.5" />
-                            {ev.requiredInstructors}
-                          </span>
-                          <span className={cn('px-1.5 py-0.5 rounded border', EVENT_STATUS_COLOR[ev.status] ?? EVENT_STATUS_COLOR.Confirmed)}>
-                            {ev.status}
-                          </span>
-                        </div>
-                        {ev.location && (
-                          <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-0.5">
-                            <MapPin className="h-2.5 w-2.5" />
-                            {ev.location}
-                          </div>
-                        )}
-                        {ev.description && (
-                          <p className="text-[11px] text-muted-foreground mt-1.5 line-clamp-2">{ev.description}</p>
-                        )}
-                      </div>
-                    </div>
+              )
+            })}
+          </Carousel>
 
-                    {isAssigned ? (
-                      <div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-1">
-                        <Check className="h-3 w-3" />
-                        You&apos;re assigned to this event
-                      </div>
-                    ) : (
-                      <div className="mt-2 flex gap-1.5">
-                        <OptInButton
-                          active={optIn?.status === 'interested'}
-                          color="active:bg-teal-500/20 bg-teal-500/10 text-teal-300 border-teal-500/40"
-                          onClick={() => optInMutation.mutate({ eventId: ev.id, status: 'interested' })}
-                          icon={<Star className="h-3 w-3" />}
-                          label="Interested"
-                        />
-                        <OptInButton
-                          active={optIn?.status === 'available'}
-                          color="active:bg-emerald-500/20 bg-emerald-500/10 text-emerald-300 border-emerald-500/40"
-                          onClick={() => optInMutation.mutate({ eventId: ev.id, status: 'available' })}
-                          icon={<Check className="h-3 w-3" />}
-                          label="Available"
-                        />
-                        <OptInButton
-                          active={optIn?.status === 'unavailable'}
-                          color="active:bg-rose-500/20 bg-rose-500/10 text-rose-300 border-rose-500/40"
-                          onClick={() => optInMutation.mutate({ eventId: ev.id, status: 'unavailable' })}
-                          icon={<X className="h-3 w-3" />}
-                          label="Can&apos;t make it"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </section>
+          {/* Availability section */}
+          {user.profile && (
+            <AvailabilitySection profileId={user.profile.id} initialUnavailable={myProfile?.unavailableList ?? user.profile.unavailable?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? []} />
+          )}
         </div>
       </div>
     </div>
+  )
+}
+
+// ---------- Carousel component ----------
+
+function Carousel({ title, icon, count, emptyMessage, children }: {
+  title: string
+  icon: React.ReactNode
+  count: number
+  emptyMessage: string
+  children: React.ReactNode
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const updateScrollButtons = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 5)
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 5)
+  }, [])
+
+  const scroll = (dir: 'left' | 'right') => {
+    const el = scrollRef.current
+    if (!el) return
+    const amount = el.clientWidth * 0.8
+    el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' })
+  }
+
+  return (
+    <section aria-label={title}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+          {icon}
+          {title} ({count})
+        </h3>
+        {count > 0 && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => scroll('left')}
+              disabled={!canScrollLeft}
+              className="p-1 rounded-md border border-border/60 text-muted-foreground disabled:opacity-30 hover:bg-muted min-w-[28px] min-h-[28px] flex items-center justify-center"
+              aria-label={`Scroll ${title} left`}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => scroll('right')}
+              disabled={!canScrollRight}
+              className="p-1 rounded-md border border-border/60 text-muted-foreground disabled:opacity-30 hover:bg-muted min-w-[28px] min-h-[28px] flex items-center justify-center"
+              aria-label={`Scroll ${title} right`}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+      {count === 0 ? (
+        <div className="text-xs text-muted-foreground p-4 border border-dashed border-border/60 rounded-md text-center">
+          {emptyMessage}
+        </div>
+      ) : (
+        <div
+          ref={scrollRef}
+          onScroll={updateScrollButtons}
+          className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
+          style={{ scrollbarWidth: 'thin' }}
+        >
+          {children}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ---------- Availability section ----------
+
+function AvailabilitySection({ profileId, initialUnavailable }: {
+  profileId: string
+  initialUnavailable: string[]
+}) {
+  const qc = useQueryClient()
+  const [unavailable, setUnavailable] = useState<string[]>(initialUnavailable)
+  const [newDate, setNewDate] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const addDate = () => {
+    if (!newDate) return
+    if (unavailable.includes(newDate)) {
+      toast.error('That date is already in your unavailable list')
+      return
+    }
+    setUnavailable([...unavailable, newDate].sort())
+    setNewDate('')
+  }
+
+  const removeDate = (date: string) => {
+    setUnavailable(unavailable.filter(d => d !== date))
+  }
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const r = await fetch(`/api/profiles?id=${profileId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unavailable }),
+      })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || 'Failed to save')
+      toast.success('Availability updated')
+      qc.invalidateQueries({ queryKey: ['my-profile'] })
+      qc.invalidateQueries({ queryKey: ['schedule'] })
+    } catch (e: any) {
+      toast.error(e.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const hasChanges = JSON.stringify(unavailable.sort()) !== JSON.stringify(initialUnavailable.sort())
+
+  return (
+    <section aria-label="My availability">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+          <Calendar className="h-3 w-3" />
+          My Availability
+        </h3>
+        {hasChanges && (
+          <button
+            onClick={save}
+            disabled={saving}
+            className="px-2.5 py-1 text-xs rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 min-h-[28px]"
+          >
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        )}
+      </div>
+      <div className="rounded-lg border border-border/60 bg-card/80 p-3 space-y-3">
+        <p className="text-[11px] text-muted-foreground">
+          Add dates you can&apos;t work. The boss will see these when assigning you to events, and the scheduler will block assignments on these dates.
+        </p>
+
+        {/* Add date */}
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={newDate}
+            onChange={e => setNewDate(e.target.value)}
+            className="px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          />
+          <button
+            onClick={addDate}
+            disabled={!newDate}
+            className="px-2.5 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground disabled:opacity-50 flex items-center gap-1 min-h-[36px]"
+          >
+            <Plus className="h-3 w-3" />
+            Add date
+          </button>
+        </div>
+
+        {/* Unavailable dates list */}
+        {unavailable.length === 0 ? (
+          <div className="text-xs text-muted-foreground italic text-center py-2">
+            No unavailable dates set — you&apos;re available every day.
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {unavailable.map(date => (
+              <span
+                key={date}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[11px]"
+              >
+                <Calendar className="h-2.5 w-2.5" />
+                {formatPrettyDate(date)}
+                <button
+                  onClick={() => removeDate(date)}
+                  className="ml-1 hover:text-rose-100"
+                  aria-label={`Remove ${date}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -251,7 +441,7 @@ function OptInButton({ active, color, onClick, icon, label }: {
     <button
       onClick={onClick}
       className={cn(
-        'flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] rounded-md border transition-colors',
+        'flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] rounded-md border transition-colors min-h-[32px]',
         active
           ? color
           : 'border-border/60 text-muted-foreground hover:bg-muted/40',
@@ -338,7 +528,7 @@ export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed
           <button
             onClick={submit}
             disabled={submitting}
-            className="w-full px-3 py-2 text-sm rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50"
+            className="w-full px-3 py-2 text-sm rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 min-h-[40px]"
           >
             {submitting ? 'Claiming…' : 'Claim my account'}
           </button>

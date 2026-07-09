@@ -152,7 +152,7 @@ export function InvitesTab() {
                   {inv.email ?? 'No email set'}
                   {' · '}
                   {inv.claimedAt
-                    ? `claimed ${new Date(inv.claimedAt).toLocaleDateString()}`
+                    ? `claimed ${new Date(inv.claimedAt).toLocaleDateString('en-US', { timeZone: 'America/Barbados' })}`
                     : 'pending claim'}
                 </div>
                 <div className="mt-1.5 flex items-center gap-1 flex-wrap">
