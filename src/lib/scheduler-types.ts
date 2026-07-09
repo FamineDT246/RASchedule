@@ -9,9 +9,6 @@ export type ProfileView = {
   skillsList: string[]
   unavailable: string | null
   unavailableList: string[]
-  shirtSize: string | null
-  shirtType: string | null
-  shirtColors: string | null
   available: string | null
   contractSigned: boolean
   notes: string | null
@@ -30,7 +27,9 @@ export type EventView = {
   endDate: string
   startTime: string
   endTime: string
-  status: string
+  status: string // Draft | Tentative | Confirmed | Cancelled
+  specificDates: string | null
+  specificDatesList: string[]
   ageRange: string | null
   participantCount: number | null
   requiredInstructors: number
@@ -45,6 +44,8 @@ export type AssignmentView = {
   date: string // YYYY-MM-DD
   status: string
   overrideFlag: boolean
+  isAlternative: boolean
+  shirtColor: string | null
   profileName: string
   profileRoleTier: string
   eventName: string
@@ -55,6 +56,48 @@ export type ScheduleData = {
   profiles: ProfileView[]
   events: EventView[]
   assignments: AssignmentView[]
+}
+
+export type AuthUser = {
+  id: string
+  name: string
+  email: string | null
+  role: 'admin' | 'instructor'
+  profileId: string | null
+  profile: {
+    id: string
+    name: string
+    roleTier: string
+    role: string
+    skills: string
+    unavailable: string | null
+  } | null
+}
+
+export type InviteView = {
+  id: string
+  name: string
+  email: string | null
+  role: string
+  profileId: string | null
+  profileName: string | null
+  inviteToken: string
+  claimedAt: string | null
+  inviteExpiresAt: string | null
+  createdAt: string
+}
+
+export type OptInView = {
+  id: string
+  userId: string
+  userName: string
+  userProfileId: string | null
+  userProfileName: string | null
+  eventId: string
+  eventName: string
+  status: 'interested' | 'available' | 'unavailable'
+  note: string | null
+  createdAt: string
 }
 
 // Tailwind class maps — keep the palette consistent & avoid indigo/blue.
@@ -71,6 +114,22 @@ export function hostColor(key: string) {
   return HOST_COLOR_CLASSES[key] ?? HOST_COLOR_CLASSES.slate
 }
 
+// Shirt color → swatch class (used for the per-assignment shirt color picker)
+export const SHIRT_COLORS = [
+  'Orange', 'Purple', 'Blue', 'Grey', 'Black', 'Turquoise', 'Green', 'White',
+] as const
+
+export const SHIRT_COLOR_SWATCH: Record<string, string> = {
+  Orange: 'bg-orange-500',
+  Purple: 'bg-purple-500',
+  Blue: 'bg-blue-500',
+  Grey: 'bg-zinc-400',
+  Black: 'bg-zinc-900 border border-zinc-600',
+  Turquoise: 'bg-teal-400',
+  Green: 'bg-emerald-500',
+  White: 'bg-white border border-zinc-300',
+}
+
 export const ROLE_TIER_COLOR: Record<string, string> = {
   Chief:     'text-amber-300 bg-amber-500/10 border-amber-500/30',
   Senior:    'text-emerald-300 bg-emerald-500/10 border-emerald-500/30',
@@ -83,10 +142,28 @@ export function roleColor(tier: string) {
   return ROLE_TIER_COLOR[tier] ?? ROLE_TIER_COLOR.Intern
 }
 
+export const EVENT_STATUS_COLOR: Record<string, string> = {
+  Draft:     'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
+  Tentative: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  Confirmed: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  Cancelled: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+}
+
 // ---------- Date helpers ----------
 
+// All date comparisons use America/Barbados time (AST, UTC-4).
+// The boss and instructors are all in Barbados, so "today" should be Barbados-today.
+const BBD_TZ = 'America/Barbados'
+
+export function todayInBarbados(): string {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BBD_TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  })
+  return fmt.format(new Date()) // en-CA gives YYYY-MM-DD
+}
+
 export function isoWeekdaysInRange(fromISO: string, toISO: string): string[] {
-  // Returns all dates from..to inclusive (UTC). Caller filters weekdays if needed.
   const out: string[] = []
   const d = new Date(`${fromISO}T00:00:00.000Z`)
   const end = new Date(`${toISO}T00:00:00.000Z`)
@@ -146,6 +223,13 @@ export function formatTime(t: string): string {
 }
 
 // Does the event fall on the given date?
+// Honors specificDates if set (event only runs on those dates).
 export function eventOnDate(ev: EventView, dateISO: string): boolean {
+  // Draft events never show on the calendar regardless of dates
+  if (ev.status === 'Draft') return false
+  // Cancelled events still show (greyed out) so the boss can see history
+  if (ev.specificDatesList && ev.specificDatesList.length > 0) {
+    return ev.specificDatesList.includes(dateISO)
+  }
   return ev.startDate <= dateISO && ev.endDate >= dateISO
 }

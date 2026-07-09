@@ -31,21 +31,23 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/assignments
-// Body: { eventId, profileId, date: 'YYYY-MM-DD', overrideFlag?: boolean }
-// Returns 200 with assignment on success, 409 with conflict details on hard error.
+// Body: { eventId, profileId, date, isAlternative?, shirtColor?, overrideFlag? }
+// Hard errors (overlap, unavailable) return 409 and cannot be overridden.
+// Fatigue warnings return 409 with conflict.details; client can re-POST with overrideFlag=true.
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { eventId, profileId, date, overrideFlag } = body as {
+  const { eventId, profileId, date, overrideFlag, isAlternative, shirtColor } = body as {
     eventId: string
     profileId: string
     date: string
     overrideFlag?: boolean
+    isAlternative?: boolean
+    shirtColor?: string | null
   }
   if (!eventId || !profileId || !date) {
     return NextResponse.json({ error: 'Missing eventId, profileId or date' }, { status: 400 })
   }
 
-  // Load profile + event + existing assignments for the same date
   const [profile, event] = await Promise.all([
     db.profile.findUnique({ where: { id: profileId } }),
     db.event.findUnique({
@@ -98,14 +100,12 @@ export async function POST(req: NextRequest) {
     existing: assignmentLite,
   })
 
-  // Hard errors cannot be overridden
   if (conflict.level === 'error') {
     return NextResponse.json(
       { error: 'Conflict', conflict },
       { status: 409 },
     )
   }
-  // Soft warnings can be overridden
   if (conflict.level === 'warning' && !overrideFlag) {
     return NextResponse.json(
       { error: 'Confirmation needed', conflict },
@@ -120,18 +120,34 @@ export async function POST(req: NextRequest) {
         profileId,
         assignedDate: new Date(`${date}T00:00:00.000Z`),
         status: 'Assigned',
+        isAlternative: !!isAlternative,
+        shirtColor: shirtColor ?? null,
         overrideFlag: !!overrideFlag,
       },
       include: { profile: true, event: true },
     })
     return NextResponse.json(created, { status: 201 })
   } catch (e) {
-    // Unique constraint (already assigned)
     return NextResponse.json(
       { error: 'Already assigned to this event on this date', detail: String(e) },
       { status: 409 },
     )
   }
+}
+
+// PATCH /api/assignments?id=...
+// Body: { isAlternative?, shirtColor?, status? }
+export async function PATCH(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get('id')
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+  const body = await req.json()
+  const data: Record<string, unknown> = {}
+  if (typeof body.isAlternative === 'boolean') data.isAlternative = body.isAlternative
+  if ('shirtColor' in body) data.shirtColor = body.shirtColor ?? null
+  if (typeof body.status === 'string') data.status = body.status
+  const updated = await db.assignment.update({ where: { id }, data })
+  return NextResponse.json(updated)
 }
 
 // DELETE /api/assignments?id=...

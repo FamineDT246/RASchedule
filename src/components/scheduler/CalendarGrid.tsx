@@ -5,12 +5,12 @@ import {
   formatDayNum,
   formatShortDate,
   eventOnDate,
+  todayInBarbados,
   type EventView,
   type AssignmentView,
 } from '@/lib/scheduler-types'
 import { DroppableEventCard } from './DroppableEventCard'
 import { cn } from '@/lib/utils'
-import { isToday } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 type Props = {
@@ -40,7 +40,7 @@ export function CalendarGrid({
   weekStartISO, events, assignments, selected, onSelect, onPrevWeek, onNextWeek, onJumpToday,
 }: Props) {
   const dates = weekDates(weekStartISO)
-  const todayISO = new Date().toISOString().slice(0, 10)
+  const todayISO = todayInBarbados()
 
   return (
     <div className="flex-1 flex flex-col min-w-0">

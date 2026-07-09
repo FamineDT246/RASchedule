@@ -14,21 +14,19 @@ datasource db {
 model Profile {
   id           String   @id @default(cuid())
   name         String
-  sex          String?  // "Male" | "Female"
+  sex          String?  // "Male" | "Female" — kept for record, not displayed prominently
   role         String   // e.g. "Senior Instructor", "Junior / Lead Instructor", "Intern"
   roleTier    String   // derived: "Chief" | "Senior" | "Junior" | "Assistant" | "Intern"
-  skills       String   // comma-separated, e.g. "Complex STEM,Robotics,Coding"
-  shirtSize   String?
-  shirtType   String?  // "Male" | "Female"
-  shirtColors String?  // comma-separated preferred colors
-  available   String?  // human-readable availability window
-  unavailable String?  // comma-separated unavailable dates (YYYY-MM-DD)
+  skills       String   // comma-separated, informational only (no longer blocks assignment)
+  available    String?  // human-readable availability window
+  unavailable  String?  // comma-separated unavailable dates (YYYY-MM-DD)
   contractSigned Boolean @default(false)
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   assignments Assignment[]
+  users       User[]
 
   @@index([roleTier])
 }
@@ -41,28 +39,37 @@ model Event {
   host               String   // organizing body
   location           String?
   description        String?
-  lengthDays         Int?     // total span in days
+  lengthDays         Int?     // total span in days (informational)
   startDate          DateTime
   endDate            DateTime
   startTime          String   // "09:00"
   endTime            String   // "15:00"
-  status             String   @default("Confirmed") // "Confirmed" | "Tentative" | "Cancelled"
+  // Draft = dates not confirmed yet → does NOT appear on calendar
+  // Tentative = dates known but not finalized → appears on calendar with warning
+  // Confirmed = locked in
+  // Cancelled = no longer happening → appears greyed out
+  status             String   @default("Confirmed")
+  // Optional list of specific dates (ISO YYYY-MM-DD). If set, the event only appears
+  // on these dates on the calendar. If empty, it appears on every day from startDate..endDate.
+  specificDates      String?  // comma-separated ISO dates
   ageRange           String?  // e.g. "10-16"
   participantCount   Int?
   requiredInstructors Int    @default(2)
   notes              String?
-  hostColor          String   @default("slate") // tailwind color hint for the host
+  hostColor          String   @default("slate")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   skills    EventSkill[]
   assignments Assignment[]
+  optIns    OptIn[]
 
   @@index([startDate])
   @@index([host])
+  @@index([status])
 }
 
-// ---------- Required skills per event ----------
+// ---------- Required skills per event (informational) ----------
 model EventSkill {
   id        String @id @default(cuid())
   eventId   String
@@ -80,7 +87,8 @@ model Assignment {
   profileId    String
   assignedDate DateTime // the specific day the person is working this event
   status       String   @default("Assigned") // "Assigned" | "Confirmed" | "Declined"
-  overrideFlag Boolean  @default(false) // true if boss overrode a soft warning
+  isAlternative Boolean @default(false) // true = backup, not primary
+  shirtColor   String?  // e.g. "Orange" — what color to wear that day
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -91,4 +99,45 @@ model Assignment {
   @@unique([eventId, profileId, assignedDate])
   @@index([profileId, assignedDate])
   @@index([eventId, assignedDate])
+}
+
+// ---------- Users (boss + invited instructors) ----------
+model User {
+  id              String   @id @default(cuid())
+  email           String?  @unique // set when invite is claimed
+  name            String
+  role            String   @default("instructor") // "admin" | "instructor"
+  profileId       String?  // link to a Profile if the user is also a staff member
+  inviteToken     String   @unique @default(cuid())
+  inviteExpiresAt DateTime?
+  claimedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  profile Profile? @relation(fields: [profileId], references: [id])
+  optIns  OptIn[]
+
+  @@index([role])
+}
+
+// ---------- Instructor opt-ins ----------
+// An instructor declares interest/availability for an event.
+// The boss sees these in the scheduler when deciding who to assign.
+model OptIn {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  // "interested" = would like to do it
+  // "available" = confirmed available for the dates
+  // "unavailable" = explicitly opted out
+  status    String   @default("interested")
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([eventId])
 }

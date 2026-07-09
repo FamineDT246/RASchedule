@@ -28,7 +28,9 @@ export function StatsBar({ totalSlots, filledSlots, conflictCount, weekLabel, on
         </div>
         <div className="min-w-0">
           <h1 className="text-sm font-semibold leading-tight truncate">Robot Adventure — Scheduler</h1>
-          <p className="text-[10px] text-muted-foreground truncate">Camp &amp; workshop instructor assignment</p>
+          <p className="text-[10px] text-muted-foreground truncate">
+            Camp &amp; workshop instructor assignment · Barbados time (AST)
+          </p>
         </div>
       </div>
 
