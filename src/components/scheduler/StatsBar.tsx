@@ -1,6 +1,7 @@
 'use client'
 
-import { Users, AlertTriangle, CheckCircle2, CalendarDays, RotateCcw } from 'lucide-react'
+import { useState } from 'react'
+import { Users, AlertTriangle, CheckCircle2, CalendarDays, RotateCcw, ChevronDown, KeyRound, LogOut, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -10,9 +11,17 @@ type Props = {
   weekLabel: string
   onReseed: () => void
   reseeding: boolean
+  userName?: string
+  userEmail?: string | null
+  onChangePassword: () => void
+  onLogout: () => void
 }
 
-export function StatsBar({ totalSlots, filledSlots, conflictCount, weekLabel, onReseed, reseeding }: Props) {
+export function StatsBar({
+  totalSlots, filledSlots, conflictCount, weekLabel, onReseed, reseeding,
+  userName, userEmail, onChangePassword, onLogout,
+}: Props) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const fillPct = totalSlots === 0 ? 0 : Math.round((filledSlots / totalSlots) * 100)
   const stats = [
     { icon: <CalendarDays className="h-3.5 w-3.5" />, label: 'Current week', value: weekLabel, tone: 'neutral' as const },
@@ -40,7 +49,7 @@ export function StatsBar({ totalSlots, filledSlots, conflictCount, weekLabel, on
         </div>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto" role="group" aria-label="Schedule statistics">
+      <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto flex-1" role="group" aria-label="Schedule statistics">
         {stats.map((s, i) => (
           <div
             key={i}
@@ -60,16 +69,57 @@ export function StatsBar({ totalSlots, filledSlots, conflictCount, weekLabel, on
         ))}
       </div>
 
-      <button
-        onClick={onReseed}
-        disabled={reseeding}
-        className="shrink-0 px-2 sm:px-2.5 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground disabled:opacity-50 flex items-center gap-1.5 min-h-[32px]"
-        title="Reset database to seed data"
-        aria-label="Reset database to seed data"
-      >
-        <RotateCcw className={cn('h-3 w-3', reseeding && 'animate-spin')} />
-        <span className="hidden lg:inline">{reseeding ? 'Resetting…' : 'Reset data'}</span>
-      </button>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          onClick={onReseed}
+          disabled={reseeding}
+          className="px-2 sm:px-2.5 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground disabled:opacity-50 flex items-center gap-1.5 min-h-[32px]"
+          title="Reset database to seed data"
+          aria-label="Reset database to seed data"
+        >
+          <RotateCcw className={cn('h-3 w-3', reseeding && 'animate-spin')} />
+          <span className="hidden lg:inline">{reseeding ? 'Resetting…' : 'Reset data'}</span>
+        </button>
+
+        {/* User menu */}
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen(o => !o)}
+            className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground min-h-[32px]"
+            aria-label="User menu"
+            aria-expanded={menuOpen}
+          >
+            <User className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline truncate max-w-[100px]">{userName ?? 'Account'}</span>
+            <ChevronDown className="h-3 w-3" />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-card border border-border/60 rounded-md shadow-lg py-1">
+                <div className="px-3 py-2 border-b border-border/40">
+                  <p className="text-xs font-medium truncate">{userName}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{userEmail}</p>
+                </div>
+                <button
+                  onClick={() => { setMenuOpen(false); onChangePassword() }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center gap-2"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Change password
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); onLogout() }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted text-rose-300 flex items-center gap-2"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Log out
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </header>
   )
 }

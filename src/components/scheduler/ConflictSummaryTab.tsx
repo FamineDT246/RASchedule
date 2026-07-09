@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import {
   AlertTriangle, Users, CalendarX, Clock, ShieldAlert, CheckCircle2, X, ArrowRight,
 } from 'lucide-react'
+import { Accordion } from './Accordion'
 
 async function fetchFullSchedule(): Promise<ScheduleData> {
   const r = await fetch('/api/schedule?from=2026-06-01&to=2026-09-30')
@@ -422,22 +423,19 @@ function IssueSection({ title, icon, tone, children }: {
   children: React.ReactNode
 }) {
   return (
-    <section aria-label={title}>
-      <div className="flex items-center gap-2 mb-2">
-        <h3 className={cn(
-          'text-[11px] uppercase tracking-wide px-2 py-0.5 rounded border flex items-center gap-1',
-          tone === 'bad'
-            ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-            : 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-        )}>
-          {icon}
-          {title}
-        </h3>
-      </div>
-      <div className="space-y-1.5">
+    <Accordion
+      label={title}
+      labelClassName={cn(
+        'flex items-center gap-1',
+        tone === 'bad'
+          ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+          : 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+      )}
+    >
+      <div className="space-y-1.5 pt-2">
         {children}
       </div>
-    </section>
+    </Accordion>
   )
 }
 

@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useSyncExternalStore } from 'react'
 import {
-  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -19,7 +19,9 @@ import { InvitesTab } from '@/components/scheduler/InvitesTab'
 import { TeamTab } from '@/components/scheduler/TeamTab'
 import { ConflictSummaryTab } from '@/components/scheduler/ConflictSummaryTab'
 import { PrintLayout } from '@/components/scheduler/PrintLayout'
+import { LoginForm } from '@/components/scheduler/LoginForm'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
+import { ChevronDown, KeyRound, LogOut } from 'lucide-react'
 
 import {
   startOfWeekISO, addDaysISO, formatShortDate, todayInBarbados,
@@ -79,6 +81,7 @@ export default function Home() {
   const [activeDrag, setActiveDrag] = useState<{ profileId: string } | null>(null)
   const [reseeding, setReseeding] = useState(false)
   const [printMode, setPrintMode] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
 
   // Print handler — renders PrintLayout to a portal, triggers window.print(), then cleans up
   const handlePrint = useCallback(() => {
@@ -117,7 +120,12 @@ export default function Home() {
   })
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      // Require a deliberate press-and-hold before drag activates on touch
+      // so scrolling still works naturally
+      activationConstraint: { delay: 250, tolerance: 8 },
+    }),
   )
 
   // Auto-jump to the first event's week on first admin load.
@@ -255,6 +263,24 @@ export default function Home() {
     },
   })
 
+  const changePasswordMutation = useMutation({
+    mutationFn: async (args: { currentPassword: string; newPassword: string }) => {
+      const r = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(args),
+      })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || 'Failed')
+      return j
+    },
+    onSuccess: () => {
+      toast.success('Password changed')
+      setShowChangePassword(false)
+    },
+    onError: (e: any) => toast.error(e.message || 'Failed to change password'),
+  })
+
   // ---- dnd handlers ----
   const onDragStart = (e: { active: { data: { current: any } } }) => {
     const d = e.active.data.current
@@ -327,40 +353,64 @@ export default function Home() {
   // If the URL has ?token=..., show the claim form (or instructor view if already claimed).
   // Wait for mount to avoid hydration mismatch.
   if (mounted && claimToken) {
-    if (user && user.role === 'instructor') {
-      // Already claimed — show instructor view
+    if (user && (user.role === 'instructor' || user.role === 'admin')) {
+      // Already claimed — show appropriate view
+      if (user.role === 'instructor') {
+        return (
+          <div className="h-screen flex flex-col bg-background">
+            <InstructorTopBar user={user} onLogout={() => logoutMutation.mutate()} onChangePassword={() => setShowChangePassword(true)} />
+            <InstructorView user={user} />
+          </div>
+        )
+      }
+      // Admin with token in URL — just clear it and show admin view
+      // (falls through to admin view below)
+    } else {
       return (
-        <div className="h-screen flex flex-col bg-background">
-          <InstructorTopBar user={user} onLogout={() => logoutMutation.mutate()} />
-          <InstructorView user={user} />
-        </div>
+        <ClaimInviteForm
+          token={claimToken}
+          onClaimed={() => {
+            setTokenOverride('')
+            if (typeof window !== 'undefined') {
+              const url = new URL(window.location.href)
+              url.searchParams.delete('token')
+              window.history.replaceState({}, '', url.toString())
+            }
+            refetchMe()
+          }}
+        />
       )
     }
-    return (
-      <ClaimInviteForm
-        token={claimToken}
-        onClaimed={() => {
-          setTokenOverride('')
-          if (typeof window !== 'undefined') {
-            const url = new URL(window.location.href)
-            url.searchParams.delete('token')
-            window.history.replaceState({}, '', url.toString())
-          }
-          refetchMe()
-        }}
-      />
-    )
+  }
+
+  // ---- LOGIN REQUIRED ----
+  // After mount, if no user is logged in, show the login form.
+  // This closes the security hole where logout → admin view.
+  if (mounted && !user) {
+    return <LoginForm onLoggedIn={() => refetchMe()} />
   }
 
   // ---- INSTRUCTOR VIEW ----
-  // Only show after mount to avoid hydration mismatch (user is fetched async)
   if (mounted && user && user.role === 'instructor') {
     return (
       <div className="h-screen flex flex-col bg-background">
-        <InstructorTopBar user={user} onLogout={() => logoutMutation.mutate()} />
+        <InstructorTopBar user={user} onLogout={() => logoutMutation.mutate()} onChangePassword={() => setShowChangePassword(true)} />
         <InstructorView user={user} />
+        {showChangePassword && (
+          <ChangePasswordModal
+            onClose={() => setShowChangePassword(false)}
+            onSubmit={(current, next) => changePasswordMutation.mutate({ currentPassword: current, newPassword: next })}
+            saving={changePasswordMutation.isPending}
+          />
+        )}
       </div>
     )
+  }
+
+  // ---- ADMIN VIEW (only shown when user.role === 'admin') ----
+  if (mounted && user && user.role !== 'admin') {
+    // Safety net — shouldn't happen, but logout if it does
+    return <LoginForm onLoggedIn={() => refetchMe()} />
   }
 
   // ---- ADMIN VIEW (default — also covers the boss who hasn't logged in) ----
@@ -414,6 +464,10 @@ export default function Home() {
           weekLabel={formatShortDate(effectiveWeekStart)}
           onReseed={() => reseedMutation.mutate()}
           reseeding={reseeding}
+          userName={user?.name}
+          userEmail={user?.email}
+          onChangePassword={() => setShowChangePassword(true)}
+          onLogout={() => logoutMutation.mutate()}
         />
 
         {/* Tab nav — horizontal scroll on mobile */}
@@ -511,6 +565,15 @@ export default function Home() {
           />
         </div>
       )}
+
+      {/* Change password modal */}
+      {showChangePassword && (
+        <ChangePasswordModal
+          onClose={() => setShowChangePassword(false)}
+          onSubmit={(current, next) => changePasswordMutation.mutate({ currentPassword: current, newPassword: next })}
+          saving={changePasswordMutation.isPending}
+        />
+      )}
     </DndContext>
   )
 }
@@ -536,7 +599,12 @@ function TabButton({ active, onClick, children }: {
   )
 }
 
-function InstructorTopBar({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+function InstructorTopBar({ user, onLogout, onChangePassword }: {
+  user: AuthUser
+  onLogout: () => void
+  onChangePassword: () => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
   return (
     <header className="border-b border-border/60 bg-card/40 px-4 py-2.5 flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -550,12 +618,116 @@ function InstructorTopBar({ user, onLogout }: { user: AuthUser; onLogout: () => 
           </p>
         </div>
       </div>
-      <button
-        onClick={onLogout}
-        className="px-2.5 py-1 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground"
-      >
-        Log out
-      </button>
+      <div className="relative">
+        <button
+          onClick={() => setMenuOpen(o => !o)}
+          className="px-2.5 py-1 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground flex items-center gap-1.5"
+          aria-label="Account menu"
+          aria-expanded={menuOpen}
+        >
+          Account
+          <ChevronDown className="h-3 w-3" />
+        </button>
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+            <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-card border border-border/60 rounded-md shadow-lg py-1">
+              <button
+                onClick={() => { setMenuOpen(false); onChangePassword() }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center gap-2"
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                Change password
+              </button>
+              <button
+                onClick={() => { setMenuOpen(false); onLogout() }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-muted text-rose-300 flex items-center gap-2"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Log out
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </header>
+  )
+}
+
+function ChangePasswordModal({ onClose, onSubmit, saving }: {
+  onClose: () => void
+  onSubmit: (current: string, next: string) => void
+  saving: boolean
+}) {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+
+  const canSubmit = current && next.length >= 6 && next === confirm && !saving
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Change password"
+    >
+      <div
+        className="bg-card border border-border/60 rounded-lg p-6 max-w-sm w-full space-y-3"
+        onClick={e => e.stopPropagation()}
+      >
+        <h2 className="text-sm font-semibold">Change Password</h2>
+        <div>
+          <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+            Current password
+          </label>
+          <input
+            type="password"
+            value={current}
+            onChange={e => setCurrent(e.target.value)}
+            className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+            New password (min 6 characters)
+          </label>
+          <input
+            type="password"
+            value={next}
+            onChange={e => setNext(e.target.value)}
+            className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+            Confirm new password
+          </label>
+          <input
+            type="password"
+            value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && canSubmit && onSubmit(current, next)}
+            className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground min-h-[36px]"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => canSubmit && onSubmit(current, next)}
+            disabled={!canSubmit}
+            className="px-3 py-1.5 text-xs rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 min-h-[36px]"
+          >
+            {saving ? 'Saving…' : 'Change password'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import {
   Plus, Pencil, Trash2, X, Calendar, Clock, Users, MapPin, Tag, Save, AlertCircle,
 } from 'lucide-react'
+import { Accordion } from './Accordion'
 
 type EventRow = EventView & {
   _assignmentCount?: number
@@ -84,33 +85,31 @@ export function EventsManagerTab() {
             const list = grouped[status] ?? []
             if (list.length === 0) return null
             return (
-              <div key={status}>
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className={cn('text-[11px] uppercase tracking-wide px-2 py-0.5 rounded border', EVENT_STATUS_COLOR[status])}>
-                    {status}
-                  </h3>
-                  <span className="text-[10px] text-muted-foreground">{list.length} event{list.length > 1 ? 's' : ''}</span>
-                </div>
-                <div className="space-y-2">
-                  {list.map(ev => (
-                    <EventListItem
-                      key={ev.id}
-                      event={ev}
-                      onEdit={() => setEditing(ev)}
-                      onDelete={() => {
-                        toast(`Delete "${ev.name}"?`, {
-                          description: 'This cannot be undone.',
-                          duration: 8000,
-                          action: {
-                            label: 'Delete',
-                            onClick: () => deleteMutation.mutate(ev.id),
-                          },
-                        })
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
+              <Accordion
+                key={status}
+                label={status}
+                count={list.length}
+                labelClassName={EVENT_STATUS_COLOR[status]}
+                defaultOpen={status === 'Draft'}
+              >
+                {list.map(ev => (
+                  <EventListItem
+                    key={ev.id}
+                    event={ev}
+                    onEdit={() => setEditing(ev)}
+                    onDelete={() => {
+                      toast(`Delete "${ev.name}"?`, {
+                        description: 'This cannot be undone.',
+                        duration: 8000,
+                        action: {
+                          label: 'Delete',
+                          onClick: () => deleteMutation.mutate(ev.id),
+                        },
+                      })
+                    }}
+                  />
+                ))}
+              </Accordion>
             )
           })}
         </div>

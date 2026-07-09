@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import bcrypt from 'bcryptjs'
 
 // POST /api/auth/claim
-// Body: { token: string, name?: string, email?: string }
+// Body: { token, name?, email, password }
 // Sets an httpOnly cookie with the user's id upon successful claim.
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { token, name, email } = body as { token: string; name?: string; email?: string }
+  const { token, name, email, password } = body as {
+    token: string
+    name?: string
+    email: string
+    password: string
+  }
   if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 400 })
+  if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 })
+  if (!password || password.length < 6) {
+    return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+  }
 
   const user = await db.user.findUnique({ where: { inviteToken: token } })
   if (!user) return NextResponse.json({ error: 'Invalid invite token' }, { status: 404 })
@@ -15,8 +25,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invite link has expired' }, { status: 410 })
   }
 
-  const updates: Record<string, unknown> = { claimedAt: new Date() }
-  if (email) updates.email = email
+  // Check email uniqueness if it's different from the current one
+  if (email !== user.email) {
+    const existing = await db.user.findUnique({ where: { email } })
+    if (existing) {
+      return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
+    }
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10)
+  const updates: Record<string, unknown> = {
+    claimedAt: new Date(),
+    passwordHash,
+    email,
+  }
   if (name) updates.name = name
 
   const updated = await db.user.update({

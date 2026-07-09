@@ -12,6 +12,7 @@ import {
   Plus, Pencil, Trash2, X, Save, User, CheckCircle2, AlertCircle,
   LayoutGrid, List, Star, Calendar,
 } from 'lucide-react'
+import { Accordion } from './Accordion'
 
 type Profile = ProfileView & {
   _assignmentCount?: number
@@ -162,25 +163,22 @@ export function TeamTab() {
 
 function DirectoryView({ grouped }: { grouped: Record<string, Profile[]> }) {
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-3">
       {ROLE_TIERS.map(tier => {
         const list = grouped[tier]
         if (!list || list.length === 0) return null
         return (
-          <section key={tier} aria-labelledby={`tier-${tier}`}>
-            <div className="flex items-center gap-2 mb-3">
-              <h3
-                id={`tier-${tier}`}
-                className={cn('text-[11px] uppercase tracking-wide px-2 py-0.5 rounded border', roleColor(tier))}
-              >
-                {tier}
-              </h3>
-              <span className="text-[10px] text-muted-foreground">{list.length}</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <Accordion
+            key={tier}
+            label={tier}
+            count={list.length}
+            labelClassName={roleColor(tier)}
+            defaultOpen={tier === 'Chief' || tier === 'Senior'}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
               {list.map(p => <StaffCard key={p.id} profile={p} />)}
             </div>
-          </section>
+          </Accordion>
         )
       })}
     </div>
@@ -272,27 +270,24 @@ function EditView({ grouped, onEdit, onDelete }: {
   onDelete: (p: Profile) => void
 }) {
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-3">
       {ROLE_TIERS.map(tier => {
         const list = grouped[tier]
         if (!list || list.length === 0) return null
         return (
-          <section key={tier} aria-labelledby={`edit-tier-${tier}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <h3
-                id={`edit-tier-${tier}`}
-                className={cn('text-[11px] uppercase tracking-wide px-2 py-0.5 rounded border', roleColor(tier))}
-              >
-                {tier}
-              </h3>
-              <span className="text-[10px] text-muted-foreground">{list.length}</span>
-            </div>
-            <div className="space-y-1.5">
+          <Accordion
+            key={tier}
+            label={tier}
+            count={list.length}
+            labelClassName={roleColor(tier)}
+            defaultOpen={tier === 'Chief' || tier === 'Senior'}
+          >
+            <div className="space-y-1.5 pt-2">
               {list.map(p => (
                 <StaffRow key={p.id} profile={p} onEdit={() => onEdit(p)} onDelete={() => onDelete(p)} />
               ))}
             </div>
-          </section>
+          </Accordion>
         )
       })}
     </div>

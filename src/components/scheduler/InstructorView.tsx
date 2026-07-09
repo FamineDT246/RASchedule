@@ -458,6 +458,8 @@ function OptInButton({ active, color, onClick, icon, label }: {
 export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed: () => void }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const submit = async () => {
@@ -465,12 +467,20 @@ export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed
       toast.error('Email is required')
       return
     }
+    if (!password || password.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match')
+      return
+    }
     setSubmitting(true)
     try {
       const r = await fetch('/api/auth/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, name, email }),
+        body: JSON.stringify({ token, name, email, password }),
       })
       const j = await r.json()
       if (!r.ok) throw new Error(j.error || 'Failed to claim')
@@ -499,7 +509,7 @@ export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed
         <div className="space-y-3 bg-card/80 border border-border/60 rounded-lg p-4">
           <div className="flex items-start gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-200">
             <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-            <span>Use the same email each time you log in. Your invite link is your login link too.</span>
+            <span>Set a password you&apos;ll remember — you&apos;ll use it with your email to log in next time.</span>
           </div>
 
           <div>
@@ -523,6 +533,31 @@ export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed
               type="email"
               placeholder="you@example.com"
               className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+              Password (min 6 characters)
+            </label>
+            <input
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              type="password"
+              placeholder="••••••••"
+              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+              Confirm password
+            </label>
+            <input
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              type="password"
+              placeholder="••••••••"
+              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+              onKeyDown={e => e.key === 'Enter' && submit()}
             />
           </div>
           <button

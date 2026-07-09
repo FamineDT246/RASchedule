@@ -323,12 +323,18 @@ async function main() {
     }
   }
 
-  // Create a default admin user (the boss)
+  // Create admin user for Jelani Payne (Chief Instructor = boss)
+  // Default password: "changeme" — must be changed on first login
+  const bcrypt = await import('bcryptjs')
+  const adminPasswordHash = await bcrypt.hash('changeme', 10)
+  const jelaniProfile = profileMap.get('Jelani Payne')
   await db.user.create({
     data: {
-      name: 'Boss',
+      name: 'Jelani Payne',
       role: 'admin',
-      email: 'boss@robotadventure.local',
+      email: 'jelani@robotadventure.local',
+      passwordHash: adminPasswordHash,
+      profileId: jelaniProfile ?? null,
       claimedAt: new Date(),
     },
   })
@@ -341,6 +347,8 @@ async function main() {
   console.log(`  Skills:      ${await db.eventSkill.count()}`)
   console.log(`  Assignments: ${await db.assignment.count()}`)
   console.log(`  Users:       ${await db.user.count()}`)
+  console.log(`\n  Admin login: jelani@robotadventure.local / changeme`)
+  console.log(`  ⚠️  Change this password immediately after first login!`)
 }
 
 main()
