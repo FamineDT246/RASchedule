@@ -1,7 +1,7 @@
 {
-  "name": "Robot Adventure Scheduler",
+  "name": "Robot Adventures Scheduler",
   "short_name": "RA Scheduler",
-  "description": "Camp & workshop instructor scheduling for Robot Adventure",
+  "description": "Camp & workshop instructor scheduling for Robot Adventures",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",

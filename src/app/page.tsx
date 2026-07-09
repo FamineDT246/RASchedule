@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useSyncExternalStore } from 'react'
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors,
@@ -81,11 +81,33 @@ export default function Home() {
   const [rosterCollapsed, setRosterCollapsed] = useState(false)
   const [selected, setSelected] = useState<{ eventId: string; date: string } | null>(null)
   const [activeDrag, setActiveDrag] = useState<{ profileId: string } | null>(null)
-  const [reseeding, setReseeding] = useState(false)
   const [printMode, setPrintMode] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [tapSelectedProfileId, setTapSelectedProfileId] = useState<string | null>(null)
   const isMobile = useIsMobile()
+
+  // Prevent back button from accidentally leaving the app.
+  // Push a dummy history state on mount; when user presses back, we intercept it
+  // and show a toast instead of navigating away.
+  useEffect(() => {
+    // Only run in browser
+    if (typeof window === 'undefined') return
+    // Push a state so there's something to go "back" to
+    window.history.pushState({ app: true }, '', window.location.href)
+
+    const handlePopState = (e: PopStateEvent) => {
+      // User pressed back — re-push the state so they stay in the app
+      window.history.pushState({ app: true }, '', window.location.href)
+      // Show a toast telling them to press back again to leave
+      toast('Press back again to exit', {
+        description: 'Use the tabs to navigate within the app.',
+        duration: 3000,
+      })
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   // Print handler — renders PrintLayout to a portal, triggers window.print(), then cleans up
   const handlePrint = useCallback(() => {
@@ -242,24 +264,6 @@ export default function Home() {
     onError: (err: any) => {
       toast.error(err?.body?.error || 'Failed to bulk assign')
     },
-  })
-
-  const reseedMutation = useMutation({
-    mutationFn: async () => {
-      setReseeding(true)
-      const r = await fetch('/api/seed', { method: 'POST' })
-      const json = await r.json()
-      if (!r.ok) throw new Error(json.error || 'Failed to reseed')
-      return json
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['schedule'] })
-      qc.invalidateQueries({ queryKey: ['events'] })
-      qc.invalidateQueries({ queryKey: ['invites'] })
-      toast.success('Database reset to seed data')
-    },
-    onError: (e: any) => toast.error(e.message || 'Reseed failed'),
-    onSettled: () => setReseeding(false),
   })
 
   const logoutMutation = useMutation({
@@ -456,10 +460,10 @@ export default function Home() {
           <p className="text-sm text-rose-400 mb-2">Failed to load schedule</p>
           <p className="text-xs text-muted-foreground mb-4">{String(error)}</p>
           <button
-            onClick={() => reseedMutation.mutate()}
+            onClick={() => window.location.reload()}
             className="px-3 py-1.5 text-sm rounded-md bg-emerald-500 text-white hover:bg-emerald-600"
           >
-            Reset &amp; reseed database
+            Reload page
           </button>
         </div>
       </div>
@@ -486,8 +490,6 @@ export default function Home() {
           filledSlots={filledSlots}
           conflictCount={conflictCount}
           weekLabel={formatShortDate(effectiveWeekStart)}
-          onReseed={() => reseedMutation.mutate()}
-          reseeding={reseeding}
           userName={user?.name}
           userEmail={user?.email}
           onChangePassword={() => setShowChangePassword(true)}
@@ -667,7 +669,7 @@ function InstructorTopBar({ user, onLogout, onChangePassword }: {
           RA
         </div>
         <div>
-          <h1 className="text-sm font-semibold leading-tight">Robot Adventure — My Schedule</h1>
+          <h1 className="text-sm font-semibold leading-tight">Robot Adventures — My Schedule</h1>
           <p className="text-[10px] text-muted-foreground">
             Signed in as {user.name}{user.email ? ` · ${user.email}` : ''}
           </p>

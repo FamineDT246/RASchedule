@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Users, AlertTriangle, CheckCircle2, CalendarDays, RotateCcw, ChevronDown, KeyRound, LogOut, User } from 'lucide-react'
+import { Users, AlertTriangle, CheckCircle2, CalendarDays, ChevronDown, KeyRound, LogOut, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -9,8 +9,6 @@ type Props = {
   filledSlots: number
   conflictCount: number
   weekLabel: string
-  onReseed: () => void
-  reseeding: boolean
   userName?: string
   userEmail?: string | null
   onChangePassword: () => void
@@ -18,7 +16,7 @@ type Props = {
 }
 
 export function StatsBar({
-  totalSlots, filledSlots, conflictCount, weekLabel, onReseed, reseeding,
+  totalSlots, filledSlots, conflictCount, weekLabel,
   userName, userEmail, onChangePassword, onLogout,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -42,7 +40,7 @@ export function StatsBar({
           RA
         </div>
         <div className="min-w-0 hidden sm:block">
-          <h1 className="text-sm font-semibold leading-tight truncate">Robot Adventure</h1>
+          <h1 className="text-sm font-semibold leading-tight truncate">Robot Adventures</h1>
           <p className="text-[10px] text-muted-foreground truncate">
             Barbados time (AST)
           </p>
@@ -70,17 +68,6 @@ export function StatsBar({
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          onClick={onReseed}
-          disabled={reseeding}
-          className="px-2 sm:px-2.5 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground disabled:opacity-50 flex items-center gap-1.5 min-h-[32px]"
-          title="Reset database to seed data"
-          aria-label="Reset database to seed data"
-        >
-          <RotateCcw className={cn('h-3 w-3', reseeding && 'animate-spin')} />
-          <span className="hidden lg:inline">{reseeding ? 'Resetting…' : 'Reset data'}</span>
-        </button>
-
         {/* User menu */}
         <div className="relative">
           <button

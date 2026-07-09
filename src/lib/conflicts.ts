@@ -1,4 +1,4 @@
-// Pure conflict-detection logic for the Robot Adventure scheduler.
+// Pure conflict-detection logic for the Robot Adventures scheduler.
 // Imported by both server (API route) and client (UI ring feedback).
 
 export type ConflictLevel = 'ok' | 'warning' | 'error'

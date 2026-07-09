@@ -93,14 +93,14 @@ export function InvitesTab() {
 
   const shareWhatsApp = (token: string, name: string) => {
     const url = inviteUrl(token)
-    const msg = `Hi ${name}! You're invited to join the Robot Adventure camp scheduler. Click here to claim your account and see the camp schedule:\n\n${url}`
+    const msg = `Hi ${name}! You're invited to join the Robot Adventures camp scheduler. Click here to claim your account and see the camp schedule:\n\n${url}`
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
   }
 
   const shareEmail = (token: string, name: string) => {
     const url = inviteUrl(token)
-    const subject = 'Your Robot Adventure scheduler invite'
-    const body = `Hi ${name},\n\nYou're invited to join the Robot Adventure camp scheduler. Click the link below to claim your account and see the camp schedule:\n\n${url}\n\nOnce you claim your account, you'll be able to opt in to events you'd like to work and see your assignments.\n\nThanks!`
+    const subject = 'Your Robot Adventures scheduler invite'
+    const body = `Hi ${name},\n\nYou're invited to join the Robot Adventures camp scheduler. Click the link below to claim your account and see the camp schedule:\n\n${url}\n\nOnce you claim your account, you'll be able to opt in to events you'd like to work and see your assignments.\n\nThanks!`
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 
