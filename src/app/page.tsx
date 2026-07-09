@@ -19,6 +19,7 @@ import { InvitesTab } from '@/components/scheduler/InvitesTab'
 import { TeamTab } from '@/components/scheduler/TeamTab'
 import { ConflictSummaryTab } from '@/components/scheduler/ConflictSummaryTab'
 import { PrintLayout } from '@/components/scheduler/PrintLayout'
+import { CalendarView } from '@/components/scheduler/CalendarView'
 import { LoginForm } from '@/components/scheduler/LoginForm'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
 import { PWAInstallPrompt } from '@/components/scheduler/PWAInstallPrompt'
@@ -43,7 +44,7 @@ async function fetchMe(): Promise<{ user: AuthUser | null }> {
   return r.json()
 }
 
-type Tab = 'scheduler' | 'events' | 'team' | 'conflicts' | 'invites'
+type Tab = 'scheduler' | 'calendar' | 'events' | 'team' | 'conflicts' | 'invites'
 
 export default function Home() {
   const qc = useQueryClient()
@@ -505,6 +506,9 @@ export default function Home() {
           <TabButton active={tab === 'scheduler'} onClick={() => setTab('scheduler')}>
             Scheduler
           </TabButton>
+          <TabButton active={tab === 'calendar'} onClick={() => setTab('calendar')}>
+            Calendar
+          </TabButton>
           <TabButton active={tab === 'events'} onClick={() => setTab('events')}>
             Events
             <span className="ml-1 text-[10px] text-muted-foreground">
@@ -595,6 +599,14 @@ export default function Home() {
             </>
           )}
 
+          {tab === 'calendar' && (
+            <CalendarView
+              events={data.events}
+              assignments={data.assignments}
+              profiles={data.profiles}
+              onSelect={(eventId, date) => setSelected({ eventId, date })}
+            />
+          )}
           {tab === 'events' && <EventsManagerTab />}
           {tab === 'team' && <TeamTab />}
           {tab === 'conflicts' && <ConflictSummaryTab onJumpToEvent={handleJumpToEvent} />}

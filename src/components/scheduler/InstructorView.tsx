@@ -10,9 +10,10 @@ import {
 import { cn } from '@/lib/utils'
 import {
   Calendar, Clock, MapPin, Users, Check, X, Star, AlertCircle, Shield, Shirt,
-  ChevronLeft, ChevronRight, Plus, Trash2, LayoutGrid, List, X as XIcon,
+  ChevronLeft, ChevronRight, Plus, Trash2, LayoutGrid, List, X as XIcon, CalendarDays,
 } from 'lucide-react'
 import { Accordion } from './Accordion'
+import { CalendarView } from './CalendarView'
 
 type OptInMap = Record<string, { status: string; note: string | null }>
 
@@ -45,7 +46,7 @@ export function InstructorView({ user }: { user: AuthUser }) {
   const { data } = useQuery({ queryKey: ['schedule'], queryFn: fetchSchedule })
   const { data: optIns } = useQuery({ queryKey: ['my-opt-ins'], queryFn: fetchMyOptIns })
   const { data: myProfile } = useQuery({ queryKey: ['my-profile'], queryFn: fetchMyProfile })
-  const [viewMode, setViewMode] = useState<'carousel' | 'list'>('carousel')
+  const [viewMode, setViewMode] = useState<'carousel' | 'list' | 'calendar'>('carousel')
   const [selectedEvent, setSelectedEvent] = useState<EventView | null>(null)
 
   const optInMutation = useMutation({
@@ -116,9 +117,30 @@ export function InstructorView({ user }: { user: AuthUser }) {
           >
             <List className="h-3.5 w-3.5" />
           </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={cn(
+              'px-2.5 py-1.5 text-xs flex items-center gap-1 min-h-[32px] border-l border-border/60',
+              viewMode === 'calendar'
+                ? 'bg-emerald-500/15 text-emerald-300'
+                : 'text-muted-foreground hover:bg-muted',
+            )}
+            aria-pressed={viewMode === 'calendar'}
+            title="Month calendar view"
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 
+      {viewMode === 'calendar' && data ? (
+        <CalendarView
+          events={data.events}
+          assignments={data.assignments}
+          myProfileId={user.profile?.id}
+          readOnly
+        />
+      ) : (
       <div className="flex-1 overflow-y-auto" role="region" aria-label="My schedule and opt-ins">
         <div className="p-4 space-y-6">
           {viewMode === 'carousel' ? (
@@ -412,6 +434,7 @@ export function InstructorView({ user }: { user: AuthUser }) {
           )}
         </div>
       </div>
+      )}
 
       {/* Event details drawer */}
       {selectedEvent && (
