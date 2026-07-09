@@ -14,6 +14,22 @@ export type ProfileView = {
   notes: string | null
 }
 
+export type OptInEntry = {
+  id: string
+  status: string
+  note: string | null
+  userId: string
+  userName: string
+  userProfileId: string | null
+  userProfileName: string | null
+}
+
+export type OptInGroup = {
+  interested: OptInEntry[]
+  available: OptInEntry[]
+  unavailable: OptInEntry[]
+}
+
 export type EventView = {
   id: string
   code: string | null
@@ -35,6 +51,7 @@ export type EventView = {
   requiredInstructors: number
   notes: string | null
   requiredSkills: string[]
+  optIns?: OptInGroup
 }
 
 export type AssignmentView = {

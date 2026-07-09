@@ -13,9 +13,8 @@ import {
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import {
-  X, MapPin, Clock, Users, Calendar, GraduationCap, Tag, Trash2, Shield, Shirt,
+  X, MapPin, Clock, Users, Calendar, GraduationCap, Tag, Trash2, Shield, Shirt, Star,
 } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
 
 type Props = {
   event: EventView | null
@@ -63,7 +62,7 @@ export function EventDetailDrawer({
         </button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto" role="region" aria-label="Event details">
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-2 gap-2 text-xs">
             <DetailRow icon={<Calendar className="h-3 w-3" />} label="Date" value={formatPrettyDate(date)} />
@@ -108,6 +107,10 @@ export function EventDetailDrawer({
                 {isFull ? 'Full' : `${needed - filled} more needed`}
               </span>
             </div>
+            <p className="text-[10px] text-muted-foreground/70 mb-2 flex items-center gap-1">
+              <Shirt className="h-2.5 w-2.5" />
+              Shirt color is set per day per event — change it for each instructor below.
+            </p>
             <div className="space-y-1.5">
               {primaryAssignments.length === 0 && altAssignments.length === 0 && (
                 <div className="text-xs text-muted-foreground p-3 border border-dashed border-border/60 rounded-md text-center">
@@ -154,8 +157,67 @@ export function EventDetailDrawer({
               <p className="text-xs leading-relaxed text-muted-foreground">{event.notes}</p>
             </div>
           )}
+
+          {/* Opt-ins section */}
+          {event.optIns && (event.optIns.interested.length + event.optIns.available.length + event.optIns.unavailable.length > 0) && (
+            <OptInsSection optIns={event.optIns} />
+          )}
         </div>
-      </ScrollArea>
+      </div>
+    </div>
+  )
+}
+
+function OptInsSection({ optIns }: { optIns: NonNullable<EventView['optIns']> }) {
+  const total = optIns.interested.length + optIns.available.length + optIns.unavailable.length
+  return (
+    <div>
+      <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1">
+        <Star className="h-3 w-3" />
+        Opt-ins ({total})
+      </h3>
+      <div className="space-y-2">
+        {optIns.available.length > 0 && (
+          <OptInGroup label="Available" color="emerald" entries={optIns.available} />
+        )}
+        {optIns.interested.length > 0 && (
+          <OptInGroup label="Interested" color="teal" entries={optIns.interested} />
+        )}
+        {optIns.unavailable.length > 0 && (
+          <OptInGroup label="Can't make it" color="rose" entries={optIns.unavailable} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function OptInGroup({ label, color, entries }: {
+  label: string
+  color: 'emerald' | 'teal' | 'rose'
+  entries: { id: string; userName: string; userProfileName: string | null; note: string | null }[]
+}) {
+  const colorClasses = {
+    emerald: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    teal: 'bg-teal-500/15 text-teal-300 border-teal-500/30',
+    rose: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+  }
+  return (
+    <div>
+      <div className={cn('inline-block text-[10px] px-1.5 py-0.5 rounded border mb-1', colorClasses[color])}>
+        {label} ({entries.length})
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {entries.map(e => (
+          <span
+            key={e.id}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-muted/60 text-foreground/90"
+            title={e.note ?? undefined}
+          >
+            {e.userProfileName ?? e.userName}
+            {e.note && <span className="text-muted-foreground">· {e.note}</span>}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }

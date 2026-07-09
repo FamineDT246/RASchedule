@@ -37,11 +37,15 @@ export function RosterRail({ profiles, collapsed, onToggleCollapsed }: Props) {
 
   if (collapsed) {
     return (
-      <aside className="w-12 shrink-0 border-r border-border/60 bg-card/40 flex flex-col items-center py-3 gap-2">
+      <aside
+        className="w-12 shrink-0 border-r border-border/60 bg-card/40 flex flex-col items-center py-3 gap-2"
+        aria-label="Roster (collapsed)"
+      >
         <button
           onClick={onToggleCollapsed}
-          className="p-2 rounded-md hover:bg-muted text-muted-foreground"
+          className="p-2 rounded-md hover:bg-muted text-muted-foreground min-w-[36px] min-h-[36px] flex items-center justify-center"
           title="Expand roster"
+          aria-label="Expand roster"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -53,7 +57,10 @@ export function RosterRail({ profiles, collapsed, onToggleCollapsed }: Props) {
   }
 
   return (
-    <aside className="w-72 shrink-0 border-r border-border/60 bg-card/40 flex flex-col">
+    <aside
+      className="w-64 sm:w-72 shrink-0 border-r border-border/60 bg-card/40 flex flex-col"
+      aria-label="Instructor roster"
+    >
       <div className="p-3 border-b border-border/60 flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold">Roster</h2>

@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils'
 import {
   Plus, Pencil, Trash2, X, Calendar, Clock, Users, MapPin, Tag, Save, AlertCircle,
 } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
 
 type EventRow = EventView & {
   _assignmentCount?: number
@@ -61,7 +60,7 @@ export function EventsManagerTab() {
   }, [events])
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold">Event Management</h2>
@@ -78,7 +77,7 @@ export function EventsManagerTab() {
         </button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto" role="region" aria-label="Events list">
         <div className="p-4 space-y-6">
           {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
           {STATUS_OPTIONS.map(status => {
@@ -110,7 +109,7 @@ export function EventsManagerTab() {
             )
           })}
         </div>
-      </ScrollArea>
+      </div>
 
       {(editing || creating) && (
         <EventEditDrawer
@@ -265,7 +264,7 @@ function EventEditDrawer({ event, onClose, onSaved }: {
           <X className="h-4 w-4" />
         </button>
       </div>
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto" role="region" aria-label="Event details form">
         <div className="p-4 space-y-3">
           <Field label="Name" required>
             <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -358,7 +357,7 @@ function EventEditDrawer({ event, onClose, onSaved }: {
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
       <div className="p-3 border-t border-border/60 flex justify-end gap-2">
         <button onClick={onClose} className="px-3 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground">
           Cancel

@@ -21,33 +21,40 @@ export function StatsBar({ totalSlots, filledSlots, conflictCount, weekLabel, on
     { icon: <AlertTriangle className="h-3.5 w-3.5" />, label: 'Conflict warnings', value: String(conflictCount), tone: conflictCount === 0 ? 'good' : 'bad' },
   ]
   return (
-    <header className="border-b border-border/60 bg-card/40 px-4 py-2.5 flex items-center justify-between gap-4">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+    <header
+      className="border-b border-border/60 bg-card/40 px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 sm:gap-4"
+      role="banner"
+    >
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div
+          className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm shrink-0"
+          aria-hidden="true"
+        >
           RA
         </div>
-        <div className="min-w-0">
-          <h1 className="text-sm font-semibold leading-tight truncate">Robot Adventure — Scheduler</h1>
+        <div className="min-w-0 hidden sm:block">
+          <h1 className="text-sm font-semibold leading-tight truncate">Robot Adventure</h1>
           <p className="text-[10px] text-muted-foreground truncate">
-            Camp &amp; workshop instructor assignment · Barbados time (AST)
+            Barbados time (AST)
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 overflow-x-auto">
+      <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto" role="group" aria-label="Schedule statistics">
         {stats.map((s, i) => (
           <div
             key={i}
             className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs whitespace-nowrap',
+              'flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-md border text-xs whitespace-nowrap shrink-0',
               s.tone === 'good' && 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
               s.tone === 'warn' && 'bg-amber-500/10 border-amber-500/30 text-amber-300',
               s.tone === 'bad' && 'bg-rose-500/10 border-rose-500/30 text-rose-300',
               s.tone === 'neutral' && 'bg-muted/40 border-border/60 text-foreground/80',
             )}
+            aria-label={`${s.label}: ${s.value}`}
           >
             {s.icon}
-            <span className="text-[10px] text-muted-foreground hidden sm:inline">{s.label}</span>
+            <span className="text-[10px] text-muted-foreground hidden md:inline">{s.label}</span>
             <span className="font-semibold tabular-nums">{s.value}</span>
           </div>
         ))}
@@ -56,11 +63,12 @@ export function StatsBar({ totalSlots, filledSlots, conflictCount, weekLabel, on
       <button
         onClick={onReseed}
         disabled={reseeding}
-        className="shrink-0 px-2.5 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground disabled:opacity-50 flex items-center gap-1.5"
+        className="shrink-0 px-2 sm:px-2.5 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground disabled:opacity-50 flex items-center gap-1.5 min-h-[32px]"
         title="Reset database to seed data"
+        aria-label="Reset database to seed data"
       >
         <RotateCcw className={cn('h-3 w-3', reseeding && 'animate-spin')} />
-        <span className="hidden sm:inline">{reseeding ? 'Resetting…' : 'Reset data'}</span>
+        <span className="hidden lg:inline">{reseeding ? 'Resetting…' : 'Reset data'}</span>
       </button>
     </header>
   )

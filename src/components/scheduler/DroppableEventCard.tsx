@@ -9,7 +9,7 @@ import {
   type AssignmentView,
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
-import { MapPin, Users, Clock, AlertTriangle, Shield } from 'lucide-react'
+import { MapPin, Clock, Users, AlertTriangle, Shield, Star } from 'lucide-react'
 
 type Props = {
   event: EventView
@@ -17,9 +17,15 @@ type Props = {
   assignments: AssignmentView[]
   selected: boolean
   onSelect: (eventId: string, date: string) => void
+  /** When true, this card renders as a "drop on all days" target (used on the first
+   *  day a multi-day event appears in the current week). */
+  showMultiDayHandle?: boolean
 }
 
-export function DroppableEventCard({ event, date, assignments, selected, onSelect }: Props) {
+export function DroppableEventCard({
+  event, date, assignments, selected, onSelect, showMultiDayHandle,
+}: Props) {
+  // Per-day drop target
   const { setNodeRef, isOver } = useDroppable({
     id: `drop-${event.id}-${date}`,
     data: { type: 'event-drop', eventId: event.id, date },
@@ -27,12 +33,16 @@ export function DroppableEventCard({ event, date, assignments, selected, onSelec
 
   const primaryCount = assignments.filter(a => !a.isAlternative).length
   const altCount = assignments.length - primaryCount
-  const filled = primaryCount // only primaries count toward fill
+  const filled = primaryCount
   const needed = event.requiredInstructors
   const isFull = filled >= needed
   const isCancelled = event.status === 'Cancelled'
   const isTentative = event.status === 'Tentative'
   const colors = hostColor(event.hostColor)
+
+  // Opt-in counts
+  const optIns = event.optIns
+  const optInTotal = (optIns?.interested.length ?? 0) + (optIns?.available.length ?? 0)
 
   return (
     <div
@@ -49,12 +59,21 @@ export function DroppableEventCard({ event, date, assignments, selected, onSelec
             ? 'border-emerald-500/40'
             : 'border-amber-500/30',
       )}
+      role="button"
+      tabIndex={0}
+      aria-label={`${event.name} on ${date}, ${filled} of ${needed} instructors assigned${altCount ? `, ${altCount} alternatives` : ''}${optInTotal ? `, ${optInTotal} opt-ins` : ''}`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect(event.id, date)
+        }
+      }}
     >
       <div className={cn('h-1 rounded-t-lg', isCancelled ? 'bg-rose-500' : colors.bar)} />
 
       <div className="p-2.5 space-y-2">
         <div className="flex items-start justify-between gap-1.5">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className={cn('text-xs font-semibold leading-tight truncate', isCancelled && 'line-through')}>
               {event.name}
             </p>
@@ -106,11 +125,7 @@ export function DroppableEventCard({ event, date, assignments, selected, onSelec
                     ? 'bg-amber-500/10 text-amber-300 border border-dashed border-amber-500/40'
                     : 'bg-muted/80 text-foreground/90',
                 )}
-                title={
-                  a.isAlternative
-                    ? `${a.profileName} (Alternative)`
-                    : a.profileName
-                }
+                title={a.isAlternative ? `${a.profileName} (Alternative)` : a.profileName}
               >
                 {a.isAlternative && <Shield className="h-2 w-2 shrink-0" />}
                 <span className="truncate">{a.profileName.split(' ')[0]}</span>
@@ -124,7 +139,47 @@ export function DroppableEventCard({ event, date, assignments, selected, onSelec
             ))}
           </div>
         )}
+
+        {/* Opt-in indicator + multi-day drop handle */}
+        <div className="flex items-center justify-between gap-1 pt-1 border-t border-border/40">
+          {optInTotal > 0 ? (
+            <span
+              className="flex items-center gap-0.5 text-[9px] text-emerald-300"
+              title={`${optIns?.interested.length ?? 0} interested, ${optIns?.available.length ?? 0} available`}
+            >
+              <Star className="h-2.5 w-2.5" />
+              {optInTotal} opt-in{optInTotal > 1 ? 's' : ''}
+            </span>
+          ) : (
+            <span className="text-[9px] text-muted-foreground/50">No opt-ins yet</span>
+          )}
+          {showMultiDayHandle && <MultiDayHandle eventId={event.id} />}
+        </div>
       </div>
     </div>
+  )
+}
+
+// Separate component to satisfy the lint rule about not accessing refs during render.
+function MultiDayHandle({ eventId }: { eventId: string }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `drop-multi-${eventId}`,
+    data: { type: 'event-drop-all', eventId },
+  })
+  return (
+    <button
+      ref={setNodeRef as any}
+      onClick={(e) => e.stopPropagation()}
+      className={cn(
+        'text-[9px] px-1.5 py-0.5 rounded border transition-colors',
+        isOver
+          ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+          : 'border-border/60 text-muted-foreground hover:bg-muted/40',
+      )}
+      title="Drag an instructor here to assign them to ALL days of this event"
+      aria-label="Drop zone: assign to all days of this event"
+    >
+      ↧ all days
+    </button>
   )
 }

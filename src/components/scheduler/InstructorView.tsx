@@ -8,7 +8,6 @@ import {
   EVENT_STATUS_COLOR, type EventView, type AssignmentView, type AuthUser,
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Calendar, Clock, MapPin, Users, Check, X, Star, AlertCircle, Shield, Shirt,
 } from 'lucide-react'
@@ -73,7 +72,7 @@ export function InstructorView({ user }: { user: AuthUser }) {
   }, [data])
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <div className="p-4 border-b border-border/60 bg-card/40">
         <h2 className="text-sm font-semibold">
           Hi {user.name.split(' ')[0]} — here&apos;s your schedule
@@ -83,8 +82,8 @@ export function InstructorView({ user }: { user: AuthUser }) {
         </p>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-4 grid gap-6 lg:grid-cols-2">
+      <div className="flex-1 overflow-y-auto" role="region" aria-label="My schedule and opt-ins">
+        <div className="p-4 grid gap-6 md:grid-cols-2">
           {/* My schedule */}
           <section>
             <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1">
@@ -236,7 +235,7 @@ export function InstructorView({ user }: { user: AuthUser }) {
             </div>
           </section>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

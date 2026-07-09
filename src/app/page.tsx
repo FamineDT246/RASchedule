@@ -15,6 +15,8 @@ import { EventDetailDrawer } from '@/components/scheduler/EventDetailDrawer'
 import { DraggableInstructor } from '@/components/scheduler/DraggableInstructor'
 import { EventsManagerTab } from '@/components/scheduler/EventsManagerTab'
 import { InvitesTab } from '@/components/scheduler/InvitesTab'
+import { StaffManagerTab } from '@/components/scheduler/StaffManagerTab'
+import { TeamDirectoryTab } from '@/components/scheduler/TeamDirectoryTab'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
 
 import {
@@ -35,7 +37,7 @@ async function fetchMe(): Promise<{ user: AuthUser | null }> {
   return r.json()
 }
 
-type Tab = 'scheduler' | 'events' | 'invites'
+type Tab = 'scheduler' | 'events' | 'invites' | 'staff' | 'directory'
 
 export default function Home() {
   const qc = useQueryClient()
@@ -147,6 +149,40 @@ export default function Home() {
     onError: () => toast.error('Failed to update assignment'),
   })
 
+  // Multi-day assignment: drop onto the "↧ all days" handle
+  const bulkAssignMutation = useMutation({
+    mutationFn: async (args: { eventId: string; profileId: string }) => {
+      const r = await fetch('/api/assignments/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(args),
+      })
+      const j = await r.json()
+      if (!r.ok && r.status !== 409) throw { status: r.status, body: j }
+      return { status: r.status, body: j }
+    },
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['schedule'] })
+      const { created, existing, conflicts, details } = res.body
+      const parts: string[] = []
+      if (created) parts.push(`${created} day${created > 1 ? 's' : ''} assigned`)
+      if (existing) parts.push(`${existing} already assigned`)
+      if (conflicts) parts.push(`${conflicts} conflict${conflicts > 1 ? 's' : ''} skipped`)
+      toast.success(`Multi-day assign: ${parts.join(' · ')}`)
+      // If there were conflicts, show the details
+      if (conflicts > 0) {
+        const conflictDetails = details
+          .filter((d: any) => d.status === 'conflict')
+          .map((d: any) => `${d.date}: ${d.conflict?.reasons.join('; ')}`)
+          .join('\n')
+        toast.warning('Conflicts skipped', { description: conflictDetails, duration: 10000 })
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.body?.error || 'Failed to bulk assign')
+    },
+  })
+
   const reseedMutation = useMutation({
     mutationFn: async () => {
       setReseeding(true)
@@ -183,13 +219,22 @@ export default function Home() {
     setActiveDrag(null)
     const overData = e.over?.data.current
     const activeData = e.active.data.current
-    if (!overData || overData.type !== 'event-drop') return
-    if (!activeData || activeData.type !== 'profile') return
-    assignMutation.mutate({
-      eventId: overData.eventId,
-      profileId: activeData.profileId,
-      date: overData.date,
-    })
+    if (!overData || !activeData || activeData.type !== 'profile') return
+
+    if (overData.type === 'event-drop-all') {
+      // Multi-day assignment
+      bulkAssignMutation.mutate({
+        eventId: overData.eventId,
+        profileId: activeData.profileId,
+      })
+    } else if (overData.type === 'event-drop') {
+      // Single-day assignment
+      assignMutation.mutate({
+        eventId: overData.eventId,
+        profileId: activeData.profileId,
+        date: overData.date,
+      })
+    }
   }
 
   // ---- derived values ----
@@ -308,6 +353,13 @@ export default function Home() {
       onDragCancel={() => setActiveDrag(null)}
     >
       <div className="h-screen flex flex-col bg-background overflow-hidden">
+        {/* Skip link for keyboard users */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-emerald-500 focus:text-white focus:text-sm"
+        >
+          Skip to main content
+        </a>
         <StatsBar
           totalSlots={totalSlots}
           filledSlots={filledSlots}
@@ -317,8 +369,12 @@ export default function Home() {
           reseeding={reseeding}
         />
 
-        {/* Tab nav */}
-        <div className="border-b border-border/60 bg-card/30 flex items-center gap-1 px-3">
+        {/* Tab nav — horizontal scroll on mobile */}
+        <nav
+          className="border-b border-border/60 bg-card/30 flex items-center gap-1 px-3 overflow-x-auto"
+          role="tablist"
+          aria-label="Main navigation"
+        >
           <TabButton active={tab === 'scheduler'} onClick={() => setTab('scheduler')}>
             Scheduler
           </TabButton>
@@ -328,12 +384,18 @@ export default function Home() {
               ({data.events.length})
             </span>
           </TabButton>
+          <TabButton active={tab === 'staff'} onClick={() => setTab('staff')}>
+            Staff
+          </TabButton>
+          <TabButton active={tab === 'directory'} onClick={() => setTab('directory')}>
+            Directory
+          </TabButton>
           <TabButton active={tab === 'invites'} onClick={() => setTab('invites')}>
             Invites
           </TabButton>
-        </div>
+        </nav>
 
-        <div className="flex-1 flex min-h-0 relative">
+        <div className="flex-1 flex min-h-0 relative" id="main-content" role="main">
           {tab === 'scheduler' && (
             <>
               <RosterRail
@@ -377,6 +439,8 @@ export default function Home() {
           )}
 
           {tab === 'events' && <EventsManagerTab />}
+          {tab === 'staff' && <StaffManagerTab />}
+          {tab === 'directory' && <TeamDirectoryTab />}
           {tab === 'invites' && <InvitesTab />}
         </div>
       </div>
@@ -399,8 +463,10 @@ function TabButton({ active, onClick, children }: {
 }) {
   return (
     <button
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
-      className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+      className={`px-3 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap min-h-[40px] flex items-center ${
         active
           ? 'border-emerald-400 text-foreground'
           : 'border-transparent text-muted-foreground hover:text-foreground'

@@ -4,8 +4,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { Plus, Copy, Trash2, CheckCircle2, Clock, Link as LinkIcon, X } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Plus, Copy, Trash2, CheckCircle2, Clock, Link as LinkIcon, X, MessageCircle, Mail } from 'lucide-react'
 
 type Invite = {
   id: string
@@ -92,8 +91,21 @@ export function InvitesTab() {
     }
   }
 
+  const shareWhatsApp = (token: string, name: string) => {
+    const url = inviteUrl(token)
+    const msg = `Hi ${name}! You're invited to join the Robot Adventure camp scheduler. Click here to claim your account and see the camp schedule:\n\n${url}`
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
+  }
+
+  const shareEmail = (token: string, name: string) => {
+    const url = inviteUrl(token)
+    const subject = 'Your Robot Adventure scheduler invite'
+    const body = `Hi ${name},\n\nYou're invited to join the Robot Adventure camp scheduler. Click the link below to claim your account and see the camp schedule:\n\n${url}\n\nOnce you claim your account, you'll be able to opt in to events you'd like to work and see your assignments.\n\nThanks!`
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  }
+
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold">Instructor Invites</h2>
@@ -110,7 +122,7 @@ export function InvitesTab() {
         </button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto" role="region" aria-label="Invites list">
         <div className="p-4 space-y-2">
           {invites?.length === 0 && (
             <div className="text-center p-8 text-sm text-muted-foreground">
@@ -143,17 +155,38 @@ export function InvitesTab() {
                     ? `claimed ${new Date(inv.claimedAt).toLocaleDateString()}`
                     : 'pending claim'}
                 </div>
-                <div className="mt-1.5 flex items-center gap-1">
-                  <code className="text-[10px] text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded truncate max-w-[280px]">
+                <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                  <code className="text-[10px] text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded truncate max-w-[200px]">
                     {inviteUrl(inv.inviteToken)}
                   </code>
                   <button
                     onClick={() => copyLink(inv.inviteToken)}
-                    className="p-1 rounded hover:bg-muted text-muted-foreground"
+                    className="p-1.5 rounded hover:bg-muted text-muted-foreground min-w-[28px] min-h-[28px] flex items-center justify-center"
                     title="Copy link"
+                    aria-label="Copy invite link"
                   >
                     <Copy className="h-3 w-3" />
                   </button>
+                  {!inv.claimedAt && (
+                    <>
+                      <button
+                        onClick={() => shareWhatsApp(inv.inviteToken, inv.name)}
+                        className="p-1.5 rounded hover:bg-emerald-500/15 hover:text-emerald-300 text-muted-foreground min-w-[28px] min-h-[28px] flex items-center justify-center"
+                        title="Share via WhatsApp"
+                        aria-label={`Share ${inv.name}'s invite via WhatsApp`}
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => shareEmail(inv.inviteToken, inv.name)}
+                        className="p-1.5 rounded hover:bg-sky-500/15 hover:text-sky-300 text-muted-foreground min-w-[28px] min-h-[28px] flex items-center justify-center"
+                        title="Share via email"
+                        aria-label={`Share ${inv.name}'s invite via email`}
+                      >
+                        <Mail className="h-3 w-3" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               <button
@@ -170,7 +203,7 @@ export function InvitesTab() {
             </div>
           ))}
         </div>
-      </ScrollArea>
+      </div>
 
       {showCreate && (
         <CreateInviteDrawer
