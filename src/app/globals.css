@@ -142,3 +142,37 @@
     background: transparent;
   }
 }
+
+/* ---------- Print styles ---------- */
+/* When .printing is on <body>, hide everything except the print layout */
+@media print {
+  body.printing > *:not(#print-portal) {
+    display: none !important;
+  }
+  body.printing #print-portal {
+    display: block !important;
+  }
+  /* Ensure colors print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Avoid breaking inside event cards */
+  .break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* Use A4 / Letter with sensible margins */
+  @page {
+    size: portrait;
+    margin: 12mm;
+  }
+}
+
+/* On screen, the print portal is hidden */
+#print-portal {
+  display: none;
+}
+body.printing #print-portal {
+  display: block;
+}

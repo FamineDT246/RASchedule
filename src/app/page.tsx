@@ -17,6 +17,8 @@ import { EventsManagerTab } from '@/components/scheduler/EventsManagerTab'
 import { InvitesTab } from '@/components/scheduler/InvitesTab'
 import { StaffManagerTab } from '@/components/scheduler/StaffManagerTab'
 import { TeamDirectoryTab } from '@/components/scheduler/TeamDirectoryTab'
+import { ConflictSummaryTab } from '@/components/scheduler/ConflictSummaryTab'
+import { PrintLayout } from '@/components/scheduler/PrintLayout'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
 
 import {
@@ -37,7 +39,7 @@ async function fetchMe(): Promise<{ user: AuthUser | null }> {
   return r.json()
 }
 
-type Tab = 'scheduler' | 'events' | 'invites' | 'staff' | 'directory'
+type Tab = 'scheduler' | 'events' | 'staff' | 'directory' | 'conflicts' | 'invites'
 
 export default function Home() {
   const qc = useQueryClient()
@@ -64,6 +66,29 @@ export default function Home() {
   const [selected, setSelected] = useState<{ eventId: string; date: string } | null>(null)
   const [activeDrag, setActiveDrag] = useState<{ profileId: string } | null>(null)
   const [reseeding, setReseeding] = useState(false)
+  const [printMode, setPrintMode] = useState(false)
+
+  // Print handler — renders PrintLayout to a portal, triggers window.print(), then cleans up
+  const handlePrint = useCallback(() => {
+    setPrintMode(true)
+    document.body.classList.add('printing')
+    // Wait for the print layout to render, then trigger print
+    setTimeout(() => {
+      window.print()
+      // Cleanup after print dialog closes
+      const cleanup = () => {
+        setPrintMode(false)
+        document.body.classList.remove('printing')
+        window.removeEventListener('afterprint', cleanup)
+      }
+      window.addEventListener('afterprint', cleanup)
+      // Fallback cleanup in case afterprint doesn't fire
+      setTimeout(() => {
+        setPrintMode(false)
+        document.body.classList.remove('printing')
+      }, 2000)
+    }, 300)
+  }, [])
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['schedule'],
@@ -390,6 +415,9 @@ export default function Home() {
           <TabButton active={tab === 'directory'} onClick={() => setTab('directory')}>
             Directory
           </TabButton>
+          <TabButton active={tab === 'conflicts'} onClick={() => setTab('conflicts')}>
+            Conflicts
+          </TabButton>
           <TabButton active={tab === 'invites'} onClick={() => setTab('invites')}>
             Invites
           </TabButton>
@@ -412,6 +440,7 @@ export default function Home() {
                 onPrevWeek={() => setWeek(w => addDaysISO(w, -7))}
                 onNextWeek={() => setWeek(w => addDaysISO(w, 7))}
                 onJumpToday={() => setWeek(startOfWeekISO(todayInBarbados()))}
+                onPrint={handlePrint}
               />
               <AnimatePresence>
                 {selectedEvent && (
@@ -441,6 +470,7 @@ export default function Home() {
           {tab === 'events' && <EventsManagerTab />}
           {tab === 'staff' && <StaffManagerTab />}
           {tab === 'directory' && <TeamDirectoryTab />}
+          {tab === 'conflicts' && <ConflictSummaryTab />}
           {tab === 'invites' && <InvitesTab />}
         </div>
       </div>
@@ -452,6 +482,17 @@ export default function Home() {
           </div>
         ) : null}
       </DragOverlay>
+
+      {/* Print portal — rendered outside the main layout, shown only when printing */}
+      {printMode && data && (
+        <div id="print-portal">
+          <PrintLayout
+            weekStartISO={effectiveWeekStart}
+            events={weekEvents}
+            assignments={weekAssignments}
+          />
+        </div>
+      )}
     </DndContext>
   )
 }

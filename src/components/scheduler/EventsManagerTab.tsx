@@ -191,7 +191,7 @@ function EventEditDrawer({ event, onClose, onSaved }: {
   onSaved: () => void
 }) {
   const isEdit = !!event
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     code: event?.code ?? '',
     name: event?.name ?? '',
     host: event?.host ?? '',
@@ -209,8 +209,45 @@ function EventEditDrawer({ event, onClose, onSaved }: {
     specificDates: (event?.specificDatesList ?? []).join('\n'),
     notes: event?.notes ?? '',
     skills: (event?.requiredSkills ?? []).join(', '),
-  })
+    // Recurrence fields
+    recurring: false,
+    recurringDays: [] as number[], // 0=Mon .. 6=Sun
+    recurringWeeks: 6,
+  }))
   const [saving, setSaving] = useState(false)
+
+  // Generate preview dates from recurrence pattern
+  const recurringPreview = useMemo(() => {
+    if (!form.recurring || form.recurringDays.length === 0 || !form.startDate) return []
+    const dates: string[] = []
+    const start = new Date(`${form.startDate}T00:00:00.000Z`)
+    // Find the first matching day on or after startDate
+    let cursor = new Date(start)
+    // Walk forward up to recurringWeeks * 7 days to find all matching days
+    const maxDays = form.recurringWeeks * 7 + 7
+    for (let i = 0; i < maxDays; i++) {
+      const dayOfWeek = cursor.getUTCDay() // 0=Sun .. 6=Sat
+      // Convert to Monday-based: 0=Mon .. 6=Sun
+      const mondayBased = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      if (form.recurringDays.includes(mondayBased)) {
+        dates.push(cursor.toISOString().slice(0, 10))
+      }
+      if (dates.length >= form.recurringWeeks) break
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+    }
+    return dates
+  }, [form.recurring, form.recurringDays, form.recurringWeeks, form.startDate])
+
+  const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+  const toggleRecurringDay = (day: number) => {
+    setForm(f => ({
+      ...f,
+      recurringDays: f.recurringDays.includes(day)
+        ? f.recurringDays.filter(d => d !== day)
+        : [...f.recurringDays, day].sort(),
+    }))
+  }
 
   const save = async () => {
     if (!form.name || !form.host) {
@@ -219,16 +256,31 @@ function EventEditDrawer({ event, onClose, onSaved }: {
     }
     setSaving(true)
     try {
+      // If recurring is on, use the generated dates as specificDates and ignore manual entry
+      const specificDates = form.recurring
+        ? recurringPreview
+        : form.specificDates
+            .split('\n').map(s => s.trim()).filter(Boolean)
+            .map(s => s.length === 10 ? s : `${s}-2026`)
+
       const payload = {
-        ...form,
         code: form.code || null,
+        name: form.name,
+        host: form.host,
+        hostColor: form.hostColor,
         location: form.location || null,
         description: form.description || null,
+        status: form.status,
+        startDate: form.startDate,
+        endDate: form.recurring && recurringPreview.length > 0
+          ? recurringPreview[recurringPreview.length - 1]
+          : form.endDate,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        requiredInstructors: form.requiredInstructors,
         ageRange: form.ageRange || null,
         participantCount: form.participantCount === '' ? null : Number(form.participantCount),
-        specificDates: form.specificDates
-          .split('\n').map(s => s.trim()).filter(Boolean)
-          .map(s => s.length === 10 ? s : `${s}-2026`),
+        specificDates,
         notes: form.notes || null,
         skills: form.skills.split(',').map(s => s.trim()).filter(Boolean),
       }
@@ -336,11 +388,101 @@ function EventEditDrawer({ event, onClose, onSaved }: {
             <input value={form.ageRange} onChange={e => setForm(f => ({ ...f, ageRange: e.target.value }))}
               className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
           </Field>
-          <Field label="Specific dates (one per line, YYYY-MM-DD) — overrides the start/end range">
-            <textarea value={form.specificDates} onChange={e => setForm(f => ({ ...f, specificDates: e.target.value }))} rows={3}
-              placeholder="2026-07-15&#10;2026-07-17"
-              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono" />
-          </Field>
+          {/* Recurring event toggle */}
+          <div className="border border-border/60 rounded-md p-3 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.recurring}
+                onChange={e => setForm(f => ({ ...f, recurring: e.target.checked }))}
+                className="h-4 w-4 rounded accent-emerald-500"
+              />
+              <span className="text-sm font-medium">Recurring event</span>
+              <span className="text-[10px] text-muted-foreground">
+                (e.g. every Tuesday for 6 weeks)
+              </span>
+            </label>
+
+            {form.recurring && (
+              <div className="space-y-3 pl-6 border-l-2 border-emerald-500/30">
+                <div>
+                  <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1.5">
+                    Repeats on
+                  </label>
+                  <div className="flex flex-wrap gap-1">
+                    {WEEKDAY_LABELS.map((wd, idx) => (
+                      <button
+                        key={wd}
+                        type="button"
+                        onClick={() => toggleRecurringDay(idx)}
+                        className={cn(
+                          'px-2.5 py-1.5 text-xs rounded-md border min-w-[36px] min-h-[36px] transition-colors',
+                          form.recurringDays.includes(idx)
+                            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-semibold'
+                            : 'border-border/60 text-muted-foreground hover:bg-muted/40',
+                        )}
+                        aria-pressed={form.recurringDays.includes(idx)}
+                      >
+                        {wd}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Starting from">
+                    <input
+                      type="date"
+                      value={form.startDate}
+                      onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
+                      className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </Field>
+                  <Field label="For N weeks">
+                    <input
+                      type="number"
+                      min={1}
+                      max={52}
+                      value={form.recurringWeeks}
+                      onChange={e => setForm(f => ({ ...f, recurringWeeks: Number(e.target.value) }))}
+                      className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </Field>
+                </div>
+
+                {recurringPreview.length > 0 ? (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+                      Preview — {recurringPreview.length} date{recurringPreview.length > 1 ? 's' : ''} will be generated
+                    </div>
+                    <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto p-2 bg-muted/30 rounded-md border border-border/40">
+                      {recurringPreview.map(d => (
+                        <span
+                          key={d}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-mono"
+                        >
+                          {d}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-muted-foreground italic">
+                    Select at least one weekday above to see the preview.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Manual specific dates — hidden when recurring is on */}
+          {!form.recurring && (
+            <Field label="Specific dates (one per line, YYYY-MM-DD) — overrides the start/end range">
+              <textarea value={form.specificDates} onChange={e => setForm(f => ({ ...f, specificDates: e.target.value }))} rows={3}
+                placeholder="2026-07-15&#10;2026-07-17"
+                className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono" />
+            </Field>
+          )}
           <Field label="Skills (comma-separated, informational only)">
             <input value={form.skills} onChange={e => setForm(f => ({ ...f, skills: e.target.value }))}
               className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400" />

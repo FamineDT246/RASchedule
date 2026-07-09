@@ -14,7 +14,7 @@ import {
 } from '@/lib/scheduler-types'
 import { DroppableEventCard } from './DroppableEventCard'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Printer } from 'lucide-react'
 
 type Props = {
   weekStartISO: string
@@ -25,6 +25,7 @@ type Props = {
   onPrevWeek: () => void
   onNextWeek: () => void
   onJumpToday: () => void
+  onPrint: () => void
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -40,7 +41,7 @@ function weekDates(weekStartISO: string): string[] {
 }
 
 export function CalendarGrid({
-  weekStartISO, events, assignments, selected, onSelect, onPrevWeek, onNextWeek, onJumpToday,
+  weekStartISO, events, assignments, selected, onSelect, onPrevWeek, onNextWeek, onJumpToday, onPrint,
 }: Props) {
   const dates = weekDates(weekStartISO)
   const todayISO = todayInBarbados()
@@ -122,6 +123,15 @@ export function CalendarGrid({
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={onPrint}
+            className="px-3 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground min-h-[32px] flex items-center gap-1.5"
+            aria-label="Print this week's schedule"
+            title="Print this week's schedule"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Print</span>
+          </button>
           <button
             onClick={onJumpToday}
             className="px-3 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground min-h-[32px]"
