@@ -47,3 +47,4 @@ See **[TURSO-DEPLOYMENT-GUIDE.md](./TURSO-DEPLOYMENT-GUIDE.md)** for step-by-ste
 - **Instructor view** — opt in to events, set availability, view schedule
 - **Print** — print-friendly weekly schedule with shirt colors
 - **Auth** — password-based login, change password, role-based access (admin/instructor)
+
