@@ -1,18 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  roleColor, ROLE_TIER_COLOR,
+  roleColor,
   type ProfileView,
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import {
   Plus, Pencil, Trash2, X, Save, User, CheckCircle2, AlertCircle,
+  LayoutGrid, List, Star, Calendar,
 } from 'lucide-react'
 
-type Profile = ProfileView
+type Profile = ProfileView & {
+  _assignmentCount?: number
+}
 
 async function fetchProfiles(): Promise<Profile[]> {
   const r = await fetch('/api/profiles')
@@ -22,12 +25,13 @@ async function fetchProfiles(): Promise<Profile[]> {
 
 const ROLE_TIERS = ['Chief', 'Senior', 'Junior', 'Assistant', 'Intern'] as const
 
-export function StaffManagerTab() {
+export function TeamTab() {
   const qc = useQueryClient()
   const { data: profiles, isLoading } = useQuery({
     queryKey: ['profiles-list'],
     queryFn: fetchProfiles,
   })
+  const [viewMode, setViewMode] = useState<'directory' | 'edit'>('directory')
   const [editing, setEditing] = useState<Profile | null>(null)
   const [creating, setCreating] = useState(false)
 
@@ -48,70 +52,94 @@ export function StaffManagerTab() {
     onError: (e: any) => toast.error(e.message || 'Failed to delete'),
   })
 
-  const grouped = (() => {
+  const handleDelete = (profile: Profile) => {
+    toast(`Remove ${profile.name}?`, {
+      description: 'Their assignments will also be removed. This cannot be undone.',
+      duration: 8000,
+      action: {
+        label: 'Remove',
+        onClick: () => deleteMutation.mutate(profile.id),
+      },
+    })
+  }
+
+  const grouped = useMemo(() => {
     if (!profiles) return {} as Record<string, Profile[]>
     const g: Record<string, Profile[]> = {}
     for (const p of profiles) {
       (g[p.roleTier] ?? (g[p.roleTier] = [])).push(p)
     }
     return g
-  })()
+  }, [profiles])
+
+  const total = profiles?.length ?? 0
+  const signed = profiles?.filter(p => p.contractSigned).length ?? 0
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Header */}
       <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">Staff Management</h2>
+          <h2 className="text-sm font-semibold">Team</h2>
           <p className="text-[10px] text-muted-foreground">
-            Edit instructor info, availability, and contracts.
+            {total} staff · {signed} contracts signed · {total - signed} pending
           </p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="px-3 py-1.5 text-xs rounded-md bg-emerald-500 text-white hover:bg-emerald-600 flex items-center gap-1.5 shrink-0"
-        >
-          <Plus className="h-3 w-3" />
-          <span className="hidden sm:inline">Add staff</span>
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* View toggle */}
+          <div className="flex rounded-md border border-border/60 overflow-hidden">
+            <button
+              onClick={() => setViewMode('directory')}
+              className={cn(
+                'px-2.5 py-1.5 text-xs flex items-center gap-1 min-h-[32px]',
+                viewMode === 'directory'
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : 'text-muted-foreground hover:bg-muted',
+              )}
+              aria-pressed={viewMode === 'directory'}
+              title="Directory view"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Directory</span>
+            </button>
+            <button
+              onClick={() => setViewMode('edit')}
+              className={cn(
+                'px-2.5 py-1.5 text-xs flex items-center gap-1 min-h-[32px] border-l border-border/60',
+                viewMode === 'edit'
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : 'text-muted-foreground hover:bg-muted',
+              )}
+              aria-pressed={viewMode === 'edit'}
+              title="Edit view"
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Edit</span>
+            </button>
+          </div>
+          {viewMode === 'edit' && (
+            <button
+              onClick={() => setCreating(true)}
+              className="px-3 py-1.5 text-xs rounded-md bg-emerald-500 text-white hover:bg-emerald-600 flex items-center gap-1.5 min-h-[32px]"
+            >
+              <Plus className="h-3 w-3" />
+              <span className="hidden sm:inline">Add staff</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto" role="region" aria-label="Staff list">
-        <div className="p-4 space-y-4">
-          {isLoading && (
-            <p className="text-sm text-muted-foreground text-center py-8">Loading…</p>
-          )}
-          {ROLE_TIERS.map(tier => {
-            const list = grouped[tier]
-            if (!list || list.length === 0) return null
-            return (
-              <section key={tier} aria-labelledby={`staff-tier-${tier}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <h3
-                    id={`staff-tier-${tier}`}
-                    className={cn('text-[11px] uppercase tracking-wide px-2 py-0.5 rounded border', roleColor(tier))}
-                  >
-                    {tier}
-                  </h3>
-                  <span className="text-[10px] text-muted-foreground">{list.length}</span>
-                </div>
-                <div className="space-y-1.5">
-                  {list.map(p => (
-                    <StaffRow
-                      key={p.id}
-                      profile={p}
-                      onEdit={() => setEditing(p)}
-                      onDelete={() => {
-                        if (confirm(`Remove ${p.name}? Their assignments will also be removed.`)) {
-                          deleteMutation.mutate(p.id)
-                        }
-                      }}
-                    />
-                  ))}
-                </div>
-              </section>
-            )
-          })}
-        </div>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto" role="region" aria-label="Team directory">
+        {isLoading && (
+          <p className="text-sm text-muted-foreground text-center py-8">Loading team…</p>
+        )}
+
+        {viewMode === 'directory' ? (
+          <DirectoryView grouped={grouped} />
+        ) : (
+          <EditView grouped={grouped} onEdit={p => setEditing(p)} onDelete={handleDelete} />
+        )}
       </div>
 
       {(editing || creating) && (
@@ -126,6 +154,147 @@ export function StaffManagerTab() {
           }}
         />
       )}
+    </div>
+  )
+}
+
+// ---------- Directory (read-only card grid) ----------
+
+function DirectoryView({ grouped }: { grouped: Record<string, Profile[]> }) {
+  return (
+    <div className="p-4 space-y-6">
+      {ROLE_TIERS.map(tier => {
+        const list = grouped[tier]
+        if (!list || list.length === 0) return null
+        return (
+          <section key={tier} aria-labelledby={`tier-${tier}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <h3
+                id={`tier-${tier}`}
+                className={cn('text-[11px] uppercase tracking-wide px-2 py-0.5 rounded border', roleColor(tier))}
+              >
+                {tier}
+              </h3>
+              <span className="text-[10px] text-muted-foreground">{list.length}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {list.map(p => <StaffCard key={p.id} profile={p} />)}
+            </div>
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+function StaffCard({ profile }: { profile: Profile }) {
+  const initials = profile.name.split(' ').map(n => n[0]).slice(0, 2).join('')
+  return (
+    <article
+      className="rounded-lg border border-border/60 bg-card/80 p-4 hover:shadow-md hover:border-foreground/30 transition-all"
+      tabIndex={0}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className="h-11 w-11 rounded-lg bg-gradient-to-br from-zinc-700 to-zinc-900 text-white font-semibold flex items-center justify-center shrink-0"
+          aria-hidden="true"
+        >
+          {initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <h4 className="text-sm font-semibold truncate">{profile.name}</h4>
+            {profile.contractSigned ? (
+              <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" aria-label="Contract signed" />
+            ) : (
+              <span
+                className="h-2 w-2 rounded-full bg-amber-400 shrink-0"
+                title="Contract not signed"
+                aria-label="Contract not signed"
+              />
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground truncate">{profile.role}</p>
+        </div>
+      </div>
+
+      {profile.skillsList.length > 0 && (
+        <div className="mt-3">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 flex items-center gap-1">
+            <Star className="h-2.5 w-2.5" />
+            Skills
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {profile.skillsList.map(s => (
+              <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-foreground/80">
+                {s}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <dl className="mt-3 space-y-1 text-[11px]">
+        {profile.available && (
+          <div className="flex gap-1.5">
+            <dt className="text-muted-foreground shrink-0 flex items-center gap-0.5">
+              <Calendar className="h-2.5 w-2.5" />
+              Available:
+            </dt>
+            <dd className="text-foreground/90">{profile.available}</dd>
+          </div>
+        )}
+        {profile.unavailableList.length > 0 && (
+          <div className="flex gap-1.5">
+            <dt className="text-muted-foreground shrink-0 flex items-center gap-0.5">
+              <X className="h-2.5 w-2.5" />
+              Unavailable:
+            </dt>
+            <dd className="text-rose-300">{profile.unavailableList.length} date{profile.unavailableList.length > 1 ? 's' : ''}</dd>
+          </div>
+        )}
+        {profile.notes && (
+          <div className="flex gap-1.5">
+            <dt className="text-muted-foreground shrink-0">Notes:</dt>
+            <dd className="text-foreground/80 line-clamp-2">{profile.notes}</dd>
+          </div>
+        )}
+      </dl>
+    </article>
+  )
+}
+
+// ---------- Edit (list with edit/delete buttons) ----------
+
+function EditView({ grouped, onEdit, onDelete }: {
+  grouped: Record<string, Profile[]>
+  onEdit: (p: Profile) => void
+  onDelete: (p: Profile) => void
+}) {
+  return (
+    <div className="p-4 space-y-4">
+      {ROLE_TIERS.map(tier => {
+        const list = grouped[tier]
+        if (!list || list.length === 0) return null
+        return (
+          <section key={tier} aria-labelledby={`edit-tier-${tier}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <h3
+                id={`edit-tier-${tier}`}
+                className={cn('text-[11px] uppercase tracking-wide px-2 py-0.5 rounded border', roleColor(tier))}
+              >
+                {tier}
+              </h3>
+              <span className="text-[10px] text-muted-foreground">{list.length}</span>
+            </div>
+            <div className="space-y-1.5">
+              {list.map(p => (
+                <StaffRow key={p.id} profile={p} onEdit={() => onEdit(p)} onDelete={() => onDelete(p)} />
+              ))}
+            </div>
+          </section>
+        )
+      })}
     </div>
   )
 }
@@ -155,14 +324,14 @@ function StaffRow({ profile, onEdit, onDelete }: {
       <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={onEdit}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"
+          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground min-w-[36px] min-h-[36px] flex items-center justify-center"
           aria-label={`Edit ${profile.name}`}
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={onDelete}
-          className="p-1.5 rounded-md hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
+          className="p-1.5 rounded-md hover:bg-destructive/10 hover:text-destructive text-muted-foreground min-w-[36px] min-h-[36px] flex items-center justify-center"
           aria-label={`Remove ${profile.name}`}
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -171,6 +340,8 @@ function StaffRow({ profile, onEdit, onDelete }: {
     </div>
   )
 }
+
+// ---------- Edit Drawer ----------
 
 function StaffEditDrawer({ profile, onClose, onSaved }: {
   profile: Profile | null
@@ -240,7 +411,7 @@ function StaffEditDrawer({ profile, onClose, onSaved }: {
         </h2>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"
+          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground min-w-[36px] min-h-[36px] flex items-center justify-center"
           aria-label="Close"
         >
           <X className="h-4 w-4" />

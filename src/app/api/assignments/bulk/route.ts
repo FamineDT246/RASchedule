@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    // Create the assignment (overrideFlag=true to skip soft warnings in bulk mode)
+    // Create the assignment (soft warnings are auto-skipped in bulk mode)
     try {
       await db.assignment.create({
         data: {
@@ -127,7 +127,6 @@ export async function POST(req: NextRequest) {
           status: 'Assigned',
           isAlternative: false,
           shirtColor: null,
-          overrideFlag: conflict.level === 'warning',
         },
       })
       results.push({ date, status: 'created' })

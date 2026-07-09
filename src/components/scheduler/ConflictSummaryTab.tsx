@@ -18,7 +18,7 @@ import {
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import {
-  AlertTriangle, Users, CalendarX, Clock, ShieldAlert, CheckCircle2, X,
+  AlertTriangle, Users, CalendarX, Clock, ShieldAlert, CheckCircle2, X, ArrowRight,
 } from 'lucide-react'
 
 async function fetchFullSchedule(): Promise<ScheduleData> {
@@ -42,7 +42,7 @@ function rangesOverlap(s1: string, e1: string, s2: string, e2: string): boolean 
   return timeToMinutes(s1) < timeToMinutes(e2) && timeToMinutes(s2) < timeToMinutes(e1)
 }
 
-export function ConflictSummaryTab() {
+export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId: string, date: string) => void }) {
   const { data, isLoading } = useQuery({
     queryKey: ['schedule'],
     queryFn: fetchFullSchedule,
@@ -298,17 +298,24 @@ export function ConflictSummaryTab() {
             <IssueSection title="Unavailable violations" icon={<X className="h-3.5 w-3.5" />} tone="bad">
               {issues.unavailable.map((issue, i) => (
                 <IssueCard key={i}>
-                  <div className="flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => onJumpToEvent(issue.eventId, issue.date)}
+                    className="flex items-center justify-between gap-2 w-full text-left hover:text-emerald-300 transition-colors group"
+                    aria-label={`Jump to ${issue.eventName} on ${formatPrettyDate(issue.date)}`}
+                  >
                     <div className="min-w-0">
                       <p className="text-sm font-medium">{issue.profileName}</p>
                       <p className="text-[10px] text-muted-foreground">
                         Assigned to <span className="text-foreground/90">{issue.eventName}</span> on {formatPrettyDate(issue.date)}
                       </p>
                     </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 shrink-0">
-                      Marked unavailable
-                    </span>
-                  </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                        Marked unavailable
+                      </span>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-emerald-300" />
+                    </div>
+                  </button>
                 </IssueCard>
               ))}
             </IssueSection>
@@ -342,7 +349,11 @@ export function ConflictSummaryTab() {
                 const colors = hostColor(issue.hostColor)
                 return (
                   <IssueCard key={i}>
-                    <div className="flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => onJumpToEvent(issue.eventId, issue.date)}
+                      className="flex items-center justify-between gap-2 w-full text-left hover:text-emerald-300 transition-colors group"
+                      aria-label={`Jump to ${issue.eventName} on ${formatPrettyDate(issue.date)}`}
+                    >
                       <div className="min-w-0 flex items-center gap-2">
                         <span className={cn('h-2 w-2 rounded-full shrink-0', colors.bar)} />
                         <div className="min-w-0">
@@ -350,10 +361,13 @@ export function ConflictSummaryTab() {
                           <p className="text-[10px] text-muted-foreground">{formatPrettyDate(issue.date)}</p>
                         </div>
                       </div>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 tabular-nums">
-                        {issue.filled}/{issue.needed}
-                      </span>
-                    </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 tabular-nums">
+                          {issue.filled}/{issue.needed}
+                        </span>
+                        <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-emerald-300" />
+                      </div>
+                    </button>
                   </IssueCard>
                 )
               })}

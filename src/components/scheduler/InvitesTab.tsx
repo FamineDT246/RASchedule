@@ -191,12 +191,18 @@ export function InvitesTab() {
               </div>
               <button
                 onClick={() => {
-                  if (confirm(`Revoke invite for ${inv.name}? They will lose access.`)) {
-                    deleteMutation.mutate(inv.id)
-                  }
+                  toast(`Revoke invite for ${inv.name}?`, {
+                    description: 'They will lose access immediately.',
+                    duration: 8000,
+                    action: {
+                      label: 'Revoke',
+                      onClick: () => deleteMutation.mutate(inv.id),
+                    },
+                  })
                 }}
-                className="p-1.5 rounded-md hover:bg-destructive/10 hover:text-destructive text-muted-foreground shrink-0"
+                className="p-1.5 rounded-md hover:bg-destructive/10 hover:text-destructive text-muted-foreground shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center"
                 title="Revoke invite"
+                aria-label={`Revoke invite for ${inv.name}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -208,7 +214,7 @@ export function InvitesTab() {
       {showCreate && (
         <CreateInviteDrawer
           profiles={profiles ?? []}
-          existingNames={new Set(invites?.map(i => i.name) ?? [])}
+          invitedProfileIds={new Set(invites?.map(i => i.profileId).filter(Boolean) as string[])}
           onClose={() => setShowCreate(false)}
           onCreate={(name, profileId) => createMutation.mutate({ name, profileId })}
           creating={createMutation.isPending}
@@ -218,113 +224,98 @@ export function InvitesTab() {
   )
 }
 
-function CreateInviteDrawer({ profiles, existingNames, onClose, onCreate, creating }: {
+function CreateInviteDrawer({ profiles, invitedProfileIds, onClose, onCreate, creating }: {
   profiles: Profile[]
-  existingNames: Set<string>
+  invitedProfileIds: Set<string>
   onClose: () => void
   onCreate: (name: string, profileId?: string) => void
   creating: boolean
 }) {
-  const [mode, setMode] = useState<'existing' | 'new'>('existing')
-  const [profileId, setProfileId] = useState<string>(profiles[0]?.id ?? '')
-  const [newName, setNewName] = useState('')
+  // Filter out staff who already have invites linked
+  const available = profiles.filter(p => !invitedProfileIds.has(p.id))
+  const [profileId, setProfileId] = useState<string>(available[0]?.id ?? '')
 
-  const canCreate = mode === 'existing' ? !!profileId : newName.trim().length > 0 && !existingNames.has(newName.trim())
+  const canCreate = !!profileId
 
   const submit = () => {
-    if (mode === 'existing') {
-      const p = profiles.find(p => p.id === profileId)
-      if (p) onCreate(p.name, p.id)
-    } else {
-      onCreate(newName.trim())
-    }
+    const p = profiles.find(p => p.id === profileId)
+    if (p) onCreate(p.name, p.id)
   }
 
   return (
-    <div className="absolute inset-y-0 right-0 z-30 w-full sm:w-96 shadow-2xl border-l border-border/60 bg-card/95 backdrop-blur-md flex flex-col">
+    <div
+      className="absolute inset-y-0 right-0 z-30 w-full sm:w-96 shadow-2xl border-l border-border/60 bg-card/95 backdrop-blur-md flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Create new invite"
+    >
       <div className="p-4 border-b border-border/60 flex items-center justify-between">
         <h2 className="text-sm font-semibold">New invite</h2>
-        <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground">
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground min-w-[36px] min-h-[36px] flex items-center justify-center"
+          aria-label="Close"
+        >
           <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="flex-1 p-4 space-y-4">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setMode('existing')}
-            className={cn(
-              'flex-1 px-3 py-1.5 text-xs rounded-md border',
-              mode === 'existing'
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                : 'border-border/60 text-muted-foreground hover:bg-muted',
-            )}
-          >
-            Link existing staff
-          </button>
-          <button
-            onClick={() => setMode('new')}
-            className={cn(
-              'flex-1 px-3 py-1.5 text-xs rounded-md border',
-              mode === 'new'
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                : 'border-border/60 text-muted-foreground hover:bg-muted',
-            )}
-          >
-            New person
-          </button>
-        </div>
-
-        {mode === 'existing' ? (
-          <div>
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
-              Staff member
-            </label>
-            <select
-              value={profileId}
-              onChange={e => setProfileId(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-            >
-              {profiles.map(p => (
-                <option key={p.id} value={p.id}>{p.name} — {p.roleTier}</option>
-              ))}
-            </select>
-            <p className="text-[10px] text-muted-foreground mt-2">
-              The instructor will be linked to this staff profile, so their assignments show up in the scheduler.
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {available.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-muted-foreground">
+              All staff members already have invites.
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Add new staff in the Team tab first, then come back to create their invite.
             </p>
           </div>
         ) : (
-          <div>
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
-              Name
-            </label>
-            <input
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              placeholder="e.g. Jamie Smith"
-              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-            />
-            <p className="text-[10px] text-muted-foreground mt-2">
-              No staff profile will be created. You can link one later from the scheduler if they join the team.
-            </p>
-          </div>
-        )}
+          <>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+                Staff member
+              </label>
+              <select
+                value={profileId}
+                onChange={e => setProfileId(e.target.value)}
+                className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                {available.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} — {p.roleTier}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted-foreground mt-2">
+                The instructor will be linked to this staff profile, so their assignments show up in the scheduler.
+              </p>
+            </div>
 
-        <div className="flex items-start gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-200">
-          <LinkIcon className="h-3 w-3 mt-0.5 shrink-0" />
-          <span>
-            After creating the invite, copy the link and send it to the instructor via WhatsApp or email.
-            They&apos;ll be asked to set their email, then they can opt in to events.
-          </span>
-        </div>
+            <div className="flex items-start gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-200">
+              <LinkIcon className="h-3 w-3 mt-0.5 shrink-0" />
+              <span>
+                After creating the invite, copy the link and send it to the instructor via WhatsApp or email.
+                They&apos;ll be asked to set their email, then they can opt in to events.
+              </span>
+            </div>
+
+            <div className="flex items-start gap-2 p-2 rounded-md bg-muted/30 border border-border/40 text-[10px] text-muted-foreground">
+              <span>
+                Need to add a new instructor? Go to the <strong>Team</strong> tab, switch to <strong>Edit</strong> mode, and click <strong>Add staff</strong>.
+              </span>
+            </div>
+          </>
+        )}
       </div>
       <div className="p-3 border-t border-border/60 flex justify-end gap-2">
-        <button onClick={onClose} className="px-3 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground">
+        <button
+          onClick={onClose}
+          className="px-3 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground min-h-[36px]"
+        >
           Cancel
         </button>
         <button
           onClick={submit}
-          disabled={!canCreate || creating}
-          className="px-3 py-1.5 text-xs rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 flex items-center gap-1.5"
+          disabled={!canCreate || creating || available.length === 0}
+          className="px-3 py-1.5 text-xs rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 flex items-center gap-1.5 min-h-[36px]"
         >
           <Plus className="h-3 w-3" />
           {creating ? 'Creating…' : 'Create invite'}

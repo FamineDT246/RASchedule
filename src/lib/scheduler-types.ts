@@ -60,7 +60,6 @@ export type AssignmentView = {
   profileId: string
   date: string // YYYY-MM-DD
   status: string
-  overrideFlag: boolean
   isAlternative: boolean
   shirtColor: string | null
   profileName: string

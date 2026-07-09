@@ -15,8 +15,7 @@ import { EventDetailDrawer } from '@/components/scheduler/EventDetailDrawer'
 import { DraggableInstructor } from '@/components/scheduler/DraggableInstructor'
 import { EventsManagerTab } from '@/components/scheduler/EventsManagerTab'
 import { InvitesTab } from '@/components/scheduler/InvitesTab'
-import { StaffManagerTab } from '@/components/scheduler/StaffManagerTab'
-import { TeamDirectoryTab } from '@/components/scheduler/TeamDirectoryTab'
+import { TeamTab } from '@/components/scheduler/TeamTab'
 import { ConflictSummaryTab } from '@/components/scheduler/ConflictSummaryTab'
 import { PrintLayout } from '@/components/scheduler/PrintLayout'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
@@ -39,7 +38,7 @@ async function fetchMe(): Promise<{ user: AuthUser | null }> {
   return r.json()
 }
 
-type Tab = 'scheduler' | 'events' | 'staff' | 'directory' | 'conflicts' | 'invites'
+type Tab = 'scheduler' | 'events' | 'team' | 'conflicts' | 'invites'
 
 export default function Home() {
   const qc = useQueryClient()
@@ -88,6 +87,14 @@ export default function Home() {
         document.body.classList.remove('printing')
       }, 2000)
     }, 300)
+  }, [])
+
+  // Jump from Conflicts tab to an event in the Scheduler
+  const handleJumpToEvent = useCallback((eventId: string, date: string) => {
+    setTab('scheduler')
+    setWeekPinned(true)
+    setWeekStart(startOfWeekISO(date))
+    setSelected({ eventId, date })
   }, [])
 
   const { data, isLoading, error } = useQuery({
@@ -409,11 +416,8 @@ export default function Home() {
               ({data.events.length})
             </span>
           </TabButton>
-          <TabButton active={tab === 'staff'} onClick={() => setTab('staff')}>
-            Staff
-          </TabButton>
-          <TabButton active={tab === 'directory'} onClick={() => setTab('directory')}>
-            Directory
+          <TabButton active={tab === 'team'} onClick={() => setTab('team')}>
+            Team
           </TabButton>
           <TabButton active={tab === 'conflicts'} onClick={() => setTab('conflicts')}>
             Conflicts
@@ -468,9 +472,8 @@ export default function Home() {
           )}
 
           {tab === 'events' && <EventsManagerTab />}
-          {tab === 'staff' && <StaffManagerTab />}
-          {tab === 'directory' && <TeamDirectoryTab />}
-          {tab === 'conflicts' && <ConflictSummaryTab />}
+          {tab === 'team' && <TeamTab />}
+          {tab === 'conflicts' && <ConflictSummaryTab onJumpToEvent={handleJumpToEvent} />}
           {tab === 'invites' && <InvitesTab />}
         </div>
       </div>

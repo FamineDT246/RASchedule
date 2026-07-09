@@ -98,9 +98,14 @@ export function EventsManagerTab() {
                       event={ev}
                       onEdit={() => setEditing(ev)}
                       onDelete={() => {
-                        if (confirm(`Delete "${ev.name}"? This cannot be undone.`)) {
-                          deleteMutation.mutate(ev.id)
-                        }
+                        toast(`Delete "${ev.name}"?`, {
+                          description: 'This cannot be undone.',
+                          duration: 8000,
+                          action: {
+                            label: 'Delete',
+                            onClick: () => deleteMutation.mutate(ev.id),
+                          },
+                        })
                       }}
                     />
                   ))}

@@ -122,15 +122,23 @@ export async function POST(req: NextRequest) {
         status: 'Assigned',
         isAlternative: !!isAlternative,
         shirtColor: shirtColor ?? null,
-        overrideFlag: !!overrideFlag,
       },
       include: { profile: true, event: true },
     })
     return NextResponse.json(created, { status: 201 })
-  } catch (e) {
+  } catch (e: any) {
+    // Prisma unique constraint violation = already assigned
+    if (e?.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Already assigned to this event on this date' },
+        { status: 409 },
+      )
+    }
+    // Any other error — report the actual message instead of masking it
+    console.error('Assignment create error:', e)
     return NextResponse.json(
-      { error: 'Already assigned to this event on this date', detail: String(e) },
-      { status: 409 },
+      { error: 'Failed to create assignment', detail: e?.message || String(e) },
+      { status: 500 },
     )
   }
 }

@@ -78,7 +78,6 @@ export async function GET(req: NextRequest) {
       profileId: a.profileId,
       date: a.assignedDate.toISOString().slice(0, 10),
       status: a.status,
-      overrideFlag: a.overrideFlag,
       isAlternative: a.isAlternative,
       shirtColor: a.shirtColor,
       profileName: a.profile.name,
