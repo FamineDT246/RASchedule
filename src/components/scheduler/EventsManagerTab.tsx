@@ -157,7 +157,10 @@ function EventListItem({ event, onEdit, onDelete }: {
           </span>
           <span className="flex items-center gap-0.5">
             <Users className="h-2.5 w-2.5" />
-            {event._assignmentCount ?? 0}/{event.requiredInstructors}
+            {event._assignmentCount ?? 0} assignments
+          </span>
+          <span className="text-muted-foreground/70">
+            {event.requiredInstructors} needed/day
           </span>
           {event._optInCount && event._optInCount > 0 && (
             <span className="text-emerald-400">+{event._optInCount} opt-in{event._optInCount > 1 ? 's' : ''}</span>

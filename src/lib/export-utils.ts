@@ -29,7 +29,7 @@ export function generateCSV(weekStartISO: string, events: EventView[], assignmen
   const rows: string[][] = []
 
   // Header row
-  rows.push(['Date', 'Day', 'Event', 'Host', 'Code', 'Start Time', 'End Time', 'Location', 'Status', 'Required', 'Assigned', 'Instructor', 'Role', 'Shirt', 'Type'])
+  rows.push(['Date', 'Day', 'Event', 'Host', 'Code', 'Start Time', 'End Time', 'Location', 'Status', 'Participants', 'Needed/Day', 'Assigned Today', 'Instructor', 'Role', 'Shirt', 'Type'])
 
   for (const dateISO of dates) {
     const dayEvents = events.filter(e => eventOnDate(e, dateISO))
@@ -52,14 +52,14 @@ export function generateCSV(weekStartISO: string, events: EventView[], assignmen
       if (all.length === 0) {
         rows.push([
           dateISO, dayName, ev.name, ev.host, ev.code ?? '', ev.startTime, ev.endTime,
-          ev.location ?? '', ev.status, String(ev.requiredInstructors), '0',
+          ev.location ?? '', ev.status, String(ev.participantCount ?? ''), String(ev.requiredInstructors), '0',
           '— Unfilled —', '', '', '',
         ])
       } else {
         for (const a of all) {
           rows.push([
             dateISO, dayName, ev.name, ev.host, ev.code ?? '', ev.startTime, ev.endTime,
-            ev.location ?? '', ev.status, String(ev.requiredInstructors), String(primaries.length),
+            ev.location ?? '', ev.status, String(ev.participantCount ?? ''), String(ev.requiredInstructors), String(primaries.length),
             a.profileName, a.profileRoleTier, a.shirtColor ?? '',
             a.isAlternative ? 'Alternative' : 'Primary',
           ])
