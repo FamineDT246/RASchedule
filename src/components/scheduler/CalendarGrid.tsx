@@ -15,7 +15,8 @@ import {
 } from '@/lib/scheduler-types'
 import { DroppableEventCard } from './DroppableEventCard'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, Printer } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, FileText, Printer } from 'lucide-react'
+import { exportCSV } from '@/lib/export-utils'
 
 type Props = {
   weekStartISO: string
@@ -27,7 +28,6 @@ type Props = {
   onNextWeek: () => void
   onJumpToday: () => void
   onPrint: () => void
-  // Mobile tap-to-assign: highlights event slots when an instructor is selected
   tapAssignMode?: boolean
   hasSelectedProfile?: boolean
 }
@@ -136,14 +136,26 @@ export function CalendarGrid({
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {/* Export dropdown */}
+          <div className="relative group">
+            <button
+              onClick={() => exportCSV(weekStartISO, events, assignments)}
+              className="px-3 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground min-h-[32px] flex items-center gap-1.5"
+              aria-label="Export schedule as CSV"
+              title="Export as CSV"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">CSV</span>
+            </button>
+          </div>
           <button
             onClick={onPrint}
             className="px-3 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground min-h-[32px] flex items-center gap-1.5"
-            aria-label="Print this week's schedule"
-            title="Print this week's schedule"
+            aria-label="Export schedule as PDF"
+            title="Export as PDF (opens print dialog — choose Save as PDF)"
           >
-            <Printer className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Print</span>
+            <FileText className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">PDF</span>
           </button>
           <button
             onClick={onJumpToday}

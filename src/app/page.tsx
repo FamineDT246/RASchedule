@@ -21,6 +21,7 @@ import { ConflictSummaryTab } from '@/components/scheduler/ConflictSummaryTab'
 import { PrintLayout } from '@/components/scheduler/PrintLayout'
 import { LoginForm } from '@/components/scheduler/LoginForm'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
+import { PWAInstallPrompt } from '@/components/scheduler/PWAInstallPrompt'
 import { ChevronDown, KeyRound, LogOut, X } from 'lucide-react'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 
@@ -626,6 +627,8 @@ export default function Home() {
           saving={changePasswordMutation.isPending}
         />
       )}
+
+      <PWAInstallPrompt />
     </DndContext>
   )
 }
