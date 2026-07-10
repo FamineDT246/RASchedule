@@ -12,8 +12,7 @@
  *   await saveSession(res, { userId: user.id })
  */
 
-import { cookies } from 'next/headers'
-import { getIronSession, sealData, unsealData } from 'iron-session'
+import { sealData, unsealData } from 'iron-session'
 import type { NextRequest } from 'next/server'
 import type { NextResponse } from 'next/server'
 
