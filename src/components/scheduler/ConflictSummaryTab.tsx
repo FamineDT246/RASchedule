@@ -21,6 +21,7 @@ import {
   AlertTriangle, Users, CalendarX, Clock, ShieldAlert, CheckCircle2, X, ArrowRight, Wrench,
 } from 'lucide-react'
 import { Accordion } from './Accordion'
+import { HelpTooltip } from './HelpTooltip'
 
 async function fetchFullSchedule(): Promise<ScheduleData> {
   const r = await fetch('/api/schedule?from=2026-06-01&to=2026-09-30')
@@ -239,6 +240,7 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <div className="p-4 border-b border-border/60 bg-card/40">
         <h2 className="text-sm font-semibold">Conflict Summary</h2>
+        <HelpTooltip text="This tab scans the entire summer for problems: Double-bookings (same person at overlapping events), Unavailable violations (person assigned on a day they marked unavailable), Fatigue streaks (>5 consecutive work days), Unfilled slots (events below required instructor count), Skill gaps (instructor missing required skills — informational, not blocking). Click any item to jump to that event in the scheduler." />
         <p className="text-[10px] text-muted-foreground">
           Scans the entire summer for double-bookings, unavailable violations, fatigue streaks, and unfilled slots.
         </p>

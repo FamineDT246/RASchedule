@@ -12,6 +12,7 @@ import {
   Plus, Pencil, Trash2, X, Calendar, Clock, Users, MapPin, Tag, Save, AlertCircle,
 } from 'lucide-react'
 import { Accordion } from './Accordion'
+import { HelpTooltip } from './HelpTooltip'
 
 type EventRow = EventView & {
   _assignmentCount?: number
@@ -65,7 +66,10 @@ export function EventsManagerTab() {
       <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold">Event Management</h2>
-          <p className="text-[10px] text-muted-foreground">
+        <HelpTooltip text="Create and manage events here. Set status: Draft (hidden from calendar, dates TBD), Tentative (visible with warning), Confirmed (normal), Cancelled (greyed out), Archived (hidden). Use the Recurring checkbox for weekly events. Use the Setup day checkbox to add a setup date where staff can be assigned to prepare equipment." />
+          <p className="text-[10px] text-muted-foreground">Set status, dates, and required instructor counts. Draft events don't appear on the calendar.</p>
+        <HelpTooltip text="Create and manage events here. Set status: Draft (hidden from calendar, dates TBD), Tentative (visible with warning), Confirmed (normal), Cancelled (greyed out), Archived (hidden). Use the Recurring checkbox for weekly events. Use the Setup day checkbox to add a setup date where staff can be assigned to prepare equipment." />
+        <p className="text-[10px] text-muted-foreground hidden">
             Set status, dates, and required instructor counts. Draft events don&apos;t appear on the calendar.
           </p>
         </div>
@@ -522,7 +526,9 @@ function EventEditDrawer({ event, onClose, onSaved }: {
                     />
                   </Field>
                 </div>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-[10px] text-muted-foreground">Set status, dates, and required instructor counts. Draft events don't appear on the calendar.</p>
+        <HelpTooltip text="Create and manage events here. Set status: Draft (hidden from calendar, dates TBD), Tentative (visible with warning), Confirmed (normal), Cancelled (greyed out), Archived (hidden). Use the Recurring checkbox for weekly events. Use the Setup day checkbox to add a setup date where staff can be assigned to prepare equipment." />
+        <p className="text-[10px] text-muted-foreground hidden">
                   Staff assigned to this event on the setup date will be setting up equipment, not teaching.
                 </p>
               </div>

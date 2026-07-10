@@ -116,9 +116,20 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    font-size: 16px; /* Base 16px — ensure consistent base across devices */
+  }
   body {
     @apply bg-background text-foreground;
+    font-size: 15px; /* Slightly larger than 14px default */
+    line-height: 1.5;
   }
+}
+
+/* Minimum text size enforcement — nothing smaller than 11px for readability */
+@layer utilities {
+  .text-\\[9px\\] { font-size: 11px !important; }
+  .text-\\[10px\\] { font-size: 12px !important; }
 }
 
 /* Thin custom scrollbars for calendar day columns and roster rail */

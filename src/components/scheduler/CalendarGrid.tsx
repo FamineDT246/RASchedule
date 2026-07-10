@@ -17,6 +17,7 @@ import { DroppableEventCard } from './DroppableEventCard'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Download, FileText, Printer } from 'lucide-react'
 import { exportCSV } from '@/lib/export-utils'
+import { HelpTooltip } from './HelpTooltip'
 
 type Props = {
   weekStartISO: string
@@ -127,13 +128,16 @@ export function CalendarGrid({
     <div className="flex-1 flex flex-col min-w-0">
       {/* Week navigator */}
       <div className="flex items-center justify-between p-3 border-b border-border/60 bg-card/40 gap-2">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold truncate">
-            Week of {formatShortDate(weekStartISO)}
-          </h2>
-          <p className="text-[10px] text-muted-foreground truncate">
-            {formatShortDate(dates[0])} – {formatShortDate(dates[6])}
-          </p>
+        <div className="min-w-0 flex items-center gap-1.5">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold truncate">
+              Week of {formatShortDate(weekStartISO)}
+            </h2>
+            <p className="text-[10px] text-muted-foreground truncate">
+              {formatShortDate(dates[0])} – {formatShortDate(dates[6])}
+            </p>
+          </div>
+          <HelpTooltip text="DRAG instructors from the left roster onto event cards to assign them. Each card shows X/Y (assigned/needed). Use CSV to export to Excel, PDF to print. '↧ all days' assigns to all days of a multi-day event at once. Past dates are locked (read-only). On mobile: tap an instructor, then tap an event to assign." />
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {/* Export dropdown */}

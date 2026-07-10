@@ -575,6 +575,16 @@ export default function Home() {
                       onClose={() => setSelected(null)}
                       onRemove={(id) => removeMutation.mutate(id)}
                       onUpdateAssignment={(id, patch) => patchAssignmentMutation.mutate({ id, patch })}
+                      onBulkShirtColor={(eventId, date, shirtColor) => {
+                        // Update all assignments for this event+date
+                        const dayAssignments = data.assignments.filter(
+                          a => a.eventId === eventId && a.date === date && !a.isAlternative
+                        )
+                        for (const a of dayAssignments) {
+                          patchAssignmentMutation.mutate({ id: a.id, patch: { shirtColor } })
+                        }
+                        toast.success(`Set all shirts to ${shirtColor}`)
+                      }}
                     />
                   </motion.div>
                 )}

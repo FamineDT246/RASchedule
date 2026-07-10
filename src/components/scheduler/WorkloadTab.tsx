@@ -8,6 +8,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Users, Calendar, Clock, TrendingUp, AlertTriangle } from 'lucide-react'
 import { Accordion } from './Accordion'
+import { HelpTooltip } from './HelpTooltip'
 
 async function fetchSchedule(): Promise<ScheduleData> {
   const r = await fetch('/api/schedule?from=2026-06-01&to=2026-09-30')
@@ -76,6 +77,7 @@ export function WorkloadTab() {
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <div className="p-4 border-b border-border/60 bg-card/40">
         <h2 className="text-sm font-semibold">Instructor Workload</h2>
+        <HelpTooltip text="Shows total assignments per instructor. Green bar = normal workload, Amber = above average, Red = busy (20+ days). Also shows days worked, events involved in, and alternatives. Unassigned instructors are listed separately at the bottom." />
         <p className="text-[10px] text-muted-foreground">
           Overview of assignments across the full summer
         </p>

@@ -7,6 +7,7 @@ import {
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Users, MapPin, Clock } from 'lucide-react'
+import { HelpTooltip } from './HelpTooltip'
 
 type Props = {
   events: EventView[]
@@ -96,11 +97,12 @@ export function CalendarView({ events, assignments, profiles, myProfileId, readO
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Month navigator */}
       <div className="flex items-center justify-between p-3 border-b border-border/60 bg-card/40 gap-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex items-center gap-1.5">
           <h2 className="text-sm font-semibold">
             {MONTH_NAMES[currentMonth.month]} {currentMonth.year}
           </h2>
-          <p className="text-[10px] text-muted-foreground">
+          <HelpTooltip text="This is the full month calendar view. Each colored chip is an event on that date. The X/Y number shows how many instructors are assigned vs needed. Click any event to see details. Use the arrows to navigate between months. Past dates are dimmed." />
+          <p className="text-[10px] text-muted-foreground hidden sm:block">
             {events.length} events total
           </p>
         </div>
@@ -214,26 +216,6 @@ export function CalendarView({ events, assignments, profiles, myProfileId, readO
               </div>
             )
           })}
-        </div>
-
-        {/* Legend */}
-        <div className="p-3 border-t border-border/60 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-          {Array.from(new Set(events.map(e => e.hostColor))).map(color => {
-            const c = hostColor(color)
-            const hosts = Array.from(new Set(events.filter(e => e.hostColor === color).map(e => e.host)))
-            return (
-              <div key={color} className="flex items-center gap-1">
-                <span className={cn('h-2 w-2 rounded-full', c.dot)} />
-                <span>{hosts.join(', ')}</span>
-              </div>
-            )
-          })}
-          {myProfileId && (
-            <div className="flex items-center gap-1">
-              <span className="text-emerald-400">★</span>
-              <span>Your assignment</span>
-            </div>
-          )}
         </div>
       </div>
     </div>

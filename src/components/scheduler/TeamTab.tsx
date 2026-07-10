@@ -13,6 +13,7 @@ import {
   LayoutGrid, List, Star, Calendar,
 } from 'lucide-react'
 import { Accordion } from './Accordion'
+import { HelpTooltip } from './HelpTooltip'
 
 type Profile = ProfileView & {
   _assignmentCount?: number
@@ -82,6 +83,7 @@ export function TeamTab() {
       <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between gap-4">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">Team</h2>
+        <HelpTooltip text="Directory shows staff cards (read-only). Switch to Edit mode to add/edit/remove staff. Each staff member has a role tier (Chief/Senior/Junior/Assistant/Intern), skills, availability window, and unavailable dates. Use the Invites tab to create login accounts for staff." />
           <p className="text-[10px] text-muted-foreground">
             {total} staff · {signed} contracts signed · {total - signed} pending
           </p>

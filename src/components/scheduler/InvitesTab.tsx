@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Plus, Copy, Trash2, CheckCircle2, Clock, Link as LinkIcon, X, MessageCircle, Mail } from 'lucide-react'
+import { HelpTooltip } from './HelpTooltip'
 
 type Invite = {
   id: string
@@ -109,6 +110,7 @@ export function InvitesTab() {
       <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold">Instructor Invites</h2>
+        <HelpTooltip text="Generate invite links for staff. Click New invite, select a staff member, then copy the link and send via WhatsApp or email. The instructor opens the link, enters their email + password, receives a verification code, and can then log in. They can only see their own schedule and opt in to events." />
           <p className="text-[10px] text-muted-foreground">
             Generate a personal link for each instructor. They can opt in to events and view their schedule — nothing else.
           </p>

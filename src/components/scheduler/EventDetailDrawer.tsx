@@ -25,10 +25,11 @@ type Props = {
   onClose: () => void
   onRemove: (assignmentId: string) => void
   onUpdateAssignment: (assignmentId: string, patch: { isAlternative?: boolean; shirtColor?: string | null }) => void
+  onBulkShirtColor?: (eventId: string, date: string, shirtColor: string) => void
 }
 
 export function EventDetailDrawer({
-  event, date, assignments, profiles, onClose, onRemove, onUpdateAssignment,
+  event, date, assignments, profiles, onClose, onRemove, onUpdateAssignment, onBulkShirtColor,
 }: Props) {
   if (!event || !date) return null
   const colors = hostColor(event.hostColor)
@@ -119,6 +120,23 @@ export function EventDetailDrawer({
               <Shirt className="h-2.5 w-2.5" />
               Shirt color is set per day per event — change it for each instructor below.
             </p>
+            {/* Bulk shirt color assign */}
+            {!isPast && onBulkShirtColor && primaryAssignments.length > 0 && (
+              <div className="flex items-center gap-2 mb-2 p-2 rounded-md bg-muted/30 border border-border/40">
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">Set all shirts:</span>
+                <select
+                  value=""
+                  onChange={e => { if (e.target.value) onBulkShirtColor(event.id, date, e.target.value) }}
+                  className="text-[11px] bg-background border border-border/60 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-400 text-foreground"
+                  title="Set shirt color for all instructors on this day"
+                >
+                  <option value="">Choose color…</option>
+                  {SHIRT_COLORS.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-1.5">
               {primaryAssignments.length === 0 && altAssignments.length === 0 && (
                 <div className="text-xs text-muted-foreground p-3 border border-dashed border-border/60 rounded-md text-center">
@@ -296,7 +314,7 @@ function AssignmentRow({
           <select
             value={assignment.shirtColor ?? ''}
             onChange={e => onUpdate(assignment.id, { shirtColor: e.target.value || null })}
-            className="text-[10px] bg-transparent border-0 focus:outline-none cursor-pointer hover:text-foreground text-muted-foreground"
+            className="text-[11px] bg-background border border-border/60 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer text-foreground"
             title="Shirt color for this day"
           >
             <option value="">—</option>
@@ -305,7 +323,7 @@ function AssignmentRow({
             ))}
           </select>
           {assignment.shirtColor && SHIRT_COLOR_SWATCH[assignment.shirtColor] && (
-            <span className={cn('h-3 w-3 rounded-full', SHIRT_COLOR_SWATCH[assignment.shirtColor])} />
+            <span className={cn('h-3.5 w-3.5 rounded-full border border-border/40', SHIRT_COLOR_SWATCH[assignment.shirtColor])} />
           )}
         </div>
       )}
