@@ -24,8 +24,8 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/invites — create invite linked to existing staff
-const authPost = await requireAdmin(req); if (authPost) return authPost;
 export async function POST(req: NextRequest) {
+  const authPost = await requireAdmin(req); if (authPost) return authPost;
   const body = await req.json()
   const { name, profileId } = body as { name: string; profileId?: string }
   if (!name) return NextResponse.json({ error: 'Missing name' }, { status: 400 })
@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
 }
 
 // DELETE /api/invites?id=...
-const authDel = await requireAdmin(req); if (authDel) return authDel;
 export async function DELETE(req: NextRequest) {
+  const authDel = await requireAdmin(req); if (authDel) return authDel;
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })

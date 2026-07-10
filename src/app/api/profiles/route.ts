@@ -21,8 +21,8 @@ export async function GET() {
 }
 
 // POST /api/profiles — create
-const authCheck = await requireAdmin(req); if (authCheck) return authCheck;
 export async function POST(req: NextRequest) {
+  const authCheck = await requireAdmin(req); if (authCheck) return authCheck;
   const body = await req.json()
   const id = crypto.randomUUID()
   const skills = Array.isArray(body.skills) ? body.skills.join(',') : (body.skills ?? '')
@@ -40,8 +40,8 @@ export async function POST(req: NextRequest) {
 }
 
 // PUT /api/profiles?id=...
-const authCheck2 = await requireAdmin(req); if (authCheck2) return authCheck2;
 export async function PUT(req: NextRequest) {
+  const authCheck2 = await requireAdmin(req); if (authCheck2) return authCheck2;
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
@@ -76,8 +76,8 @@ export async function PUT(req: NextRequest) {
 }
 
 // DELETE /api/profiles?id=...
-const authCheck3 = await requireAdmin(req); if (authCheck3) return authCheck3;
 export async function DELETE(req: NextRequest) {
+  const authCheck3 = await requireAdmin(req); if (authCheck3) return authCheck3;
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })

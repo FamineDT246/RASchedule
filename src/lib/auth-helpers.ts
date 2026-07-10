@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUser } from './me/route'
+import { getAuthUser } from '@/app/api/auth/me/route'
 
 // Helper: require admin auth for a route handler
 // Usage: export async function GET(req: NextRequest) {

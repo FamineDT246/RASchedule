@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/assignments — create single assignment
-const authPost = await requireAdmin(req); if (authPost) return authPost;
 export async function POST(req: NextRequest) {
+  const authPost = await requireAdmin(req); if (authPost) return authPost;
   const body = await req.json()
   const { eventId, profileId, date, overrideFlag, isAlternative, shirtColor } = body as {
     eventId: string; profileId: string; date: string
@@ -70,8 +70,8 @@ export async function POST(req: NextRequest) {
 }
 
 // PATCH /api/assignments?id=...
-const authPatch = await requireAdmin(req); if (authPatch) return authPatch;
 export async function PATCH(req: NextRequest) {
+  const authPatch = await requireAdmin(req); if (authPatch) return authPatch;
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
@@ -94,8 +94,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 // DELETE /api/assignments?id=...
-const authDel = await requireAdmin(req); if (authDel) return authDel;
 export async function DELETE(req: NextRequest) {
+  const authDel = await requireAdmin(req); if (authDel) return authDel;
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
