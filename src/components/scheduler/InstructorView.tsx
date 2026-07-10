@@ -837,6 +837,8 @@ export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [verifyCode, setVerifyCode] = useState('')
+  const [step, setStep] = useState<'details' | 'verify'>('details')
   const [submitting, setSubmitting] = useState(false)
 
   const submit = async () => {
@@ -854,15 +856,35 @@ export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed
     }
     setSubmitting(true)
     try {
-      const r = await fetch('/api/auth/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, name, email, password }),
-      })
-      const j = await r.json()
-      if (!r.ok) throw new Error(j.error || 'Failed to claim')
-      toast.success('Account claimed')
-      onClaimed()
+      if (step === 'details') {
+        // Step 1: send verification code
+        const r = await fetch('/api/auth/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, name, email, password }),
+        })
+        const j = await r.json()
+        if (!r.ok) throw new Error(j.error || 'Failed')
+        if (j.step === 'verify') {
+          setStep('verify')
+          toast.success('Verification code sent to your email')
+        } else {
+          // No verification needed (dev mode) — account claimed
+          toast.success('Account claimed')
+          onClaimed()
+        }
+      } else {
+        // Step 2: verify code + claim
+        const r = await fetch('/api/auth/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, name, email, password, verifyCode }),
+        })
+        const j = await r.json()
+        if (!r.ok) throw new Error(j.error || 'Failed to claim')
+        toast.success('Account verified!')
+        onClaimed()
+      }
     } catch (e: any) {
       toast.error(e.message || 'Claim failed')
     } finally {
@@ -879,71 +901,113 @@ export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed
           </div>
           <h1 className="text-lg font-semibold">You&apos;re invited!</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Claim your account to view the camp schedule and opt in to events.
+            {step === 'details'
+              ? 'Claim your account to view the camp schedule and opt in to events.'
+              : 'Enter the 6-digit code we sent to your email.'}
           </p>
         </div>
 
         <div className="space-y-3 bg-card/80 border border-border/60 rounded-lg p-4">
-          <div className="flex items-start gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-200">
-            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-            <span>Set a password you&apos;ll remember — you&apos;ll use it with your email to log in next time.</span>
-          </div>
+          {step === 'details' ? (
+            <>
+              <div className="flex items-start gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-200">
+                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                <span>Set a password you&apos;ll remember — you&apos;ll use it with your email to log in next time. We&apos;ll send a verification code to your email.</span>
+              </div>
 
-          <div>
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
-              Your name (optional)
-            </label>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Jamie Smith"
-              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
-              Email (required)
-            </label>
-            <input
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              type="email"
-              placeholder="you@example.com"
-              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
-              Password (min 6 characters)
-            </label>
-            <input
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              type="password"
-              placeholder="••••••••"
-              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
-              Confirm password
-            </label>
-            <input
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              type="password"
-              placeholder="••••••••"
-              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-              onKeyDown={e => e.key === 'Enter' && submit()}
-            />
-          </div>
-          <button
-            onClick={submit}
-            disabled={submitting}
-            className="w-full px-3 py-2 text-sm rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 min-h-[40px]"
-          >
-            {submitting ? 'Claiming…' : 'Claim my account'}
-          </button>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+                  Your name (optional)
+                </label>
+                <input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. Jamie Smith"
+                  className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+                  Email (required)
+                </label>
+                <input
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  type="email"
+                  placeholder="you@example.com"
+                  className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+                  Password (min 6 characters)
+                </label>
+                <input
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  type="password"
+                  placeholder="••••••••"
+                  className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+                  Confirm password
+                </label>
+                <input
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  type="password"
+                  placeholder="••••••••"
+                  className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  onKeyDown={e => e.key === 'Enter' && submit()}
+                />
+              </div>
+              <button
+                onClick={submit}
+                disabled={submitting}
+                className="w-full px-3 py-2 text-sm rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 min-h-[40px]"
+              >
+                {submitting ? 'Sending code…' : 'Send verification code'}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-200">
+                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                <span>Enter the 6-digit code sent to <strong>{email}</strong>. The code expires in 10 minutes.</span>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">
+                  Verification code
+                </label>
+                <input
+                  value={verifyCode}
+                  onChange={e => setVerifyCode(e.target.value)}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="123456"
+                  className="w-full px-2 py-3 text-center text-2xl tracking-[0.5em] rounded-md bg-background border border-border/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 font-mono"
+                  onKeyDown={e => e.key === 'Enter' && submit()}
+                  autoFocus
+                />
+              </div>
+              <button
+                onClick={submit}
+                disabled={submitting || verifyCode.length !== 6}
+                className="w-full px-3 py-2 text-sm rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 min-h-[40px]"
+              >
+                {submitting ? 'Verifying…' : 'Verify & claim account'}
+              </button>
+              <button
+                onClick={() => { setStep('details'); setVerifyCode('') }}
+                className="w-full px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                ← Back to details
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
