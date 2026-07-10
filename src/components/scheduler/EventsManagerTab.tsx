@@ -63,21 +63,19 @@ export function EventsManagerTab() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold">Event Management</h2>
-        <HelpTooltip text="Create and manage events here. Set status: Draft (hidden from calendar, dates TBD), Tentative (visible with warning), Confirmed (normal), Cancelled (greyed out), Archived (hidden). Use the Recurring checkbox for weekly events. Use the Setup day checkbox to add a setup date where staff can be assigned to prepare equipment." />
-          <p className="text-[10px] text-muted-foreground">Set status, dates, and required instructor counts. Draft events don't appear on the calendar.</p>
-        <HelpTooltip text="Create and manage events here. Set status: Draft (hidden from calendar, dates TBD), Tentative (visible with warning), Confirmed (normal), Cancelled (greyed out), Archived (hidden). Use the Recurring checkbox for weekly events. Use the Setup day checkbox to add a setup date where staff can be assigned to prepare equipment." />
-        <p className="text-[10px] text-muted-foreground hidden">
-            Set status, dates, and required instructor counts. Draft events don&apos;t appear on the calendar.
-          </p>
+      <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div>
+            <h2 className="text-base font-semibold">Event Management</h2>
+            <p className="text-xs text-muted-foreground">Set status, dates, and required instructor counts.</p>
+          </div>
+          <HelpTooltip text="Create and manage events here. Set status: Draft (hidden from calendar, dates TBD), Tentative (visible with warning), Confirmed (normal), Cancelled (greyed out), Archived (hidden). Use the Recurring checkbox for weekly events. Use the Setup day checkbox to add a setup date where staff can be assigned to prepare equipment." />
         </div>
         <button
           onClick={() => setCreating(true)}
-          className="px-3 py-1.5 text-xs rounded-md bg-emerald-500 text-white hover:bg-emerald-600 flex items-center gap-1.5"
+          className="px-3 py-2 text-sm rounded-md bg-emerald-500 text-white hover:bg-emerald-600 flex items-center gap-1.5 min-h-[44px]"
         >
-          <Plus className="h-3 w-3" />
+          <Plus className="h-4 w-4" />
           New event
         </button>
       </div>

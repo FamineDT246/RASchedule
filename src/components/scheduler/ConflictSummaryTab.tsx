@@ -238,12 +238,12 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      <div className="p-4 border-b border-border/60 bg-card/40">
-        <h2 className="text-sm font-semibold">Conflict Summary</h2>
+      <div className="p-4 border-b border-border/60 bg-card/40 flex items-center gap-2">
+        <div>
+          <h2 className="text-base font-semibold">Conflict Summary</h2>
+          <p className="text-xs text-muted-foreground">Scans the entire summer for scheduling problems.</p>
+        </div>
         <HelpTooltip text="This tab scans the entire summer for problems: Double-bookings (same person at overlapping events), Unavailable violations (person assigned on a day they marked unavailable), Fatigue streaks (>5 consecutive work days), Unfilled slots (events below required instructor count), Skill gaps (instructor missing required skills — informational, not blocking). Click any item to jump to that event in the scheduler." />
-        <p className="text-[10px] text-muted-foreground">
-          Scans the entire summer for double-bookings, unavailable violations, fatigue streaks, and unfilled slots.
-        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto" role="region" aria-label="Conflict summary">

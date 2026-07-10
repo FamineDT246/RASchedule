@@ -699,7 +699,7 @@ function InstructorTopBar({ user, onLogout, onChangePassword }: {
           RA
         </div>
         <div className="min-w-0">
-          <h1 className="text-xs sm:text-sm font-semibold leading-tight truncate">
+          <h1 className="text-sm sm:text-base font-semibold leading-tight truncate">
             Hi {user.name.split(' ')[0]}
           </h1>
           <p className="text-[9px] sm:text-[10px] text-muted-foreground truncate">

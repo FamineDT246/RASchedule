@@ -43,7 +43,7 @@ export function LoginForm({ onLoggedIn }: Props) {
           <div className="h-12 w-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold">
             RA
           </div>
-          <h1 className="text-lg font-semibold">RA Syncbot</h1>
+          <h1 className="text-xl font-semibold">RA Syncbot</h1>
           <p className="text-xs text-muted-foreground mt-1">
             Sign in to the camp scheduler
           </p>

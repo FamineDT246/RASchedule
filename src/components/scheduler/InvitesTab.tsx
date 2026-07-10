@@ -107,13 +107,13 @@ export function InvitesTab() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold">Instructor Invites</h2>
-        <HelpTooltip text="Generate invite links for staff. Click New invite, select a staff member, then copy the link and send via WhatsApp or email. The instructor opens the link, enters their email + password, receives a verification code, and can then log in. They can only see their own schedule and opt in to events." />
-          <p className="text-[10px] text-muted-foreground">
-            Generate a personal link for each instructor. They can opt in to events and view their schedule — nothing else.
-          </p>
+      <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div>
+            <h2 className="text-base font-semibold">Instructor Invites</h2>
+            <p className="text-xs text-muted-foreground">Generate invite links for staff to opt in and view their schedule.</p>
+          </div>
+          <HelpTooltip text="Generate invite links for staff. Click New invite, select a staff member, then copy the link and send via WhatsApp or email. The instructor opens the link, enters their email + password, receives a verification code, and can then log in. They can only see their own schedule and opt in to events." />
         </div>
         <button
           onClick={() => setShowCreate(true)}

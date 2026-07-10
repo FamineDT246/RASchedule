@@ -117,19 +117,33 @@
     @apply border-border outline-ring/50;
   }
   html {
-    font-size: 16px; /* Base 16px — ensure consistent base across devices */
+    font-size: 16px; /* WCAG baseline — 1rem = 16px */
   }
   body {
     @apply bg-background text-foreground;
-    font-size: 15px; /* Slightly larger than 14px default */
+    font-size: 16px; /* Body text: 16px (1rem) — never smaller for primary reading */
     line-height: 1.5;
   }
 }
 
-/* Minimum text size enforcement — nothing smaller than 11px for readability */
+/* Typography scale enforcement per WCAG standards:
+   - Body: 16px (1rem)
+   - Secondary/metadata: 14px (0.875rem)
+   - Absolute floor (badges, timestamps): 12px (0.75rem)
+   - Nothing below 12px ever */
 @layer utilities {
-  .text-\\[9px\\] { font-size: 11px !important; }
+  .text-\\[9px\\] { font-size: 12px !important; }
   .text-\\[10px\\] { font-size: 12px !important; }
+  .text-\\[11px\\] { font-size: 12px !important; }
+  /* 12px is fine for badges/timestamps — leave as-is */
+}
+
+/* WCAG 2.1 AA: minimum 44x44px touch targets for interactive elements on mobile */
+@media (pointer: coarse) {
+  button, a, [role="button"], input[type="checkbox"], input[type="radio"], select {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* Thin custom scrollbars for calendar day columns and roster rail */

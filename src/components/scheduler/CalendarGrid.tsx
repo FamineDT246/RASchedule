@@ -130,7 +130,7 @@ export function CalendarGrid({
       <div className="flex items-center justify-between p-3 border-b border-border/60 bg-card/40 gap-2">
         <div className="min-w-0 flex items-center gap-1.5">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold truncate">
+            <h2 className="text-base font-semibold truncate">
               Week of {formatShortDate(weekStartISO)}
             </h2>
             <p className="text-[10px] text-muted-foreground truncate">

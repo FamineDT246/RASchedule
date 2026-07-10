@@ -80,13 +80,13 @@ export function TeamTab() {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold">Team</h2>
-        <HelpTooltip text="Directory shows staff cards (read-only). Switch to Edit mode to add/edit/remove staff. Each staff member has a role tier (Chief/Senior/Junior/Assistant/Intern), skills, availability window, and unavailable dates. Use the Invites tab to create login accounts for staff." />
-          <p className="text-[10px] text-muted-foreground">
-            {total} staff · {signed} contracts signed · {total - signed} pending
-          </p>
+      <div className="p-4 border-b border-border/60 bg-card/40 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold">Team</h2>
+            <p className="text-xs text-muted-foreground">{total} staff · {signed} contracts signed · {total - signed} pending</p>
+          </div>
+          <HelpTooltip text="Directory shows staff cards (read-only). Switch to Edit mode to add/edit/remove staff. Each staff member has a role tier (Chief/Senior/Junior/Assistant/Intern), skills, availability window, and unavailable dates. Use the Invites tab to create login accounts for staff." />
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {/* View toggle */}
