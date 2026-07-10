@@ -49,12 +49,7 @@ export function StatsBar({
       role="banner"
     >
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        <div
-          className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm shrink-0"
-          aria-hidden="true"
-        >
-          RA
-        </div>
+        <img src="/logo.png" alt="RA Syncbot" className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg object-cover shrink-0" />
         <div className="min-w-0 hidden sm:block">
           <h1 className="text-base font-semibold leading-tight truncate">RA Syncbot</h1>
           <p className="text-[10px] text-muted-foreground truncate">

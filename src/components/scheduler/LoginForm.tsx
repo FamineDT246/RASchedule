@@ -40,9 +40,7 @@ export function LoginForm({ onLoggedIn }: Props) {
     <div className="min-h-screen flex items-center justify-center bg-background p-6">
       <div className="max-w-sm w-full">
         <div className="text-center mb-6">
-          <div className="h-12 w-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold">
-            RA
-          </div>
+          <img src="/logo.png" alt="RA Syncbot" className="h-16 w-16 mx-auto mb-3 rounded-xl object-cover" />
           <h1 className="text-xl font-semibold">RA Syncbot</h1>
           <p className="text-xs text-muted-foreground mt-1">
             Sign in to the camp scheduler

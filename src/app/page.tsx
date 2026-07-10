@@ -695,9 +695,7 @@ function InstructorTopBar({ user, onLogout, onChangePassword }: {
   return (
     <header className="border-b border-border/60 bg-card/40 px-3 sm:px-4 py-2 flex items-center justify-between gap-2">
       <div className="flex items-center gap-2 min-w-0">
-        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
-          RA
-        </div>
+        <img src="/logo.png" alt="RA Syncbot" className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg object-cover shrink-0" />
         <div className="min-w-0">
           <h1 className="text-sm sm:text-base font-semibold leading-tight truncate">
             Hi {user.name.split(' ')[0]}

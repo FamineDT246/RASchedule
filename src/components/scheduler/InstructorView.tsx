@@ -86,15 +86,15 @@ export function InstructorView({ user }: { user: AuthUser }) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      <div className="px-3 sm:px-4 py-2 border-b border-border/60 bg-card/40 flex items-center justify-between gap-2">
-        <p className="text-[10px] text-muted-foreground truncate hidden sm:block">
+      <div className="px-3 sm:px-4 py-2 border-b border-border/60 bg-card/40 flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-xs text-muted-foreground truncate">
           Opt in to events you&apos;d like to work
         </p>
-        <div className="flex rounded-md border border-border/60 overflow-hidden shrink-0 ml-auto">
+        <div className="flex rounded-md border border-border/60 overflow-hidden shrink-0">
           <button
             onClick={() => setViewMode('carousel')}
             className={cn(
-              'px-2.5 py-1.5 text-xs flex items-center gap-1 min-h-[32px]',
+              'px-3 py-2 text-sm flex items-center gap-1 min-h-[44px] min-w-[44px]',
               viewMode === 'carousel'
                 ? 'bg-emerald-500/15 text-emerald-300'
                 : 'text-muted-foreground hover:bg-muted',
@@ -102,12 +102,12 @@ export function InstructorView({ user }: { user: AuthUser }) {
             aria-pressed={viewMode === 'carousel'}
             title="Carousel view"
           >
-            <LayoutGrid className="h-3.5 w-3.5" />
+            <LayoutGrid className="h-4 w-4" />
           </button>
           <button
             onClick={() => setViewMode('list')}
             className={cn(
-              'px-2.5 py-1.5 text-xs flex items-center gap-1 min-h-[32px] border-l border-border/60',
+              'px-3 py-2 text-sm flex items-center gap-1 min-h-[44px] min-w-[44px] border-l border-border/60',
               viewMode === 'list'
                 ? 'bg-emerald-500/15 text-emerald-300'
                 : 'text-muted-foreground hover:bg-muted',
@@ -115,12 +115,12 @@ export function InstructorView({ user }: { user: AuthUser }) {
             aria-pressed={viewMode === 'list'}
             title="List view"
           >
-            <List className="h-3.5 w-3.5" />
+            <List className="h-4 w-4" />
           </button>
           <button
             onClick={() => setViewMode('calendar')}
             className={cn(
-              'px-2.5 py-1.5 text-xs flex items-center gap-1 min-h-[32px] border-l border-border/60',
+              'px-3 py-2 text-sm flex items-center gap-1 min-h-[44px] min-w-[44px] border-l border-border/60',
               viewMode === 'calendar'
                 ? 'bg-emerald-500/15 text-emerald-300'
                 : 'text-muted-foreground hover:bg-muted',
@@ -128,7 +128,7 @@ export function InstructorView({ user }: { user: AuthUser }) {
             aria-pressed={viewMode === 'calendar'}
             title="Month calendar view"
           >
-            <CalendarDays className="h-3.5 w-3.5" />
+            <CalendarDays className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -896,9 +896,7 @@ export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed
     <div className="min-h-screen flex items-center justify-center bg-background p-6">
       <div className="max-w-sm w-full">
         <div className="text-center mb-6">
-          <div className="h-12 w-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold">
-            RA
-          </div>
+          <img src="/logo.png" alt="RA Syncbot" className="h-16 w-16 mx-auto mb-3 rounded-xl object-cover" />
           <h1 className="text-lg font-semibold">You&apos;re invited!</h1>
           <p className="text-xs text-muted-foreground mt-1">
             {step === 'details'

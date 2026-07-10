@@ -13,12 +13,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing token' }, { status: 400 })
   }
 
-  // Find the user by invite token
+  // Find the user by invite token OR user id (both work)
   const userResult = await db.execute({
     sql: `SELECT u.*, p.name as profileName FROM User u
           LEFT JOIN Profile p ON u.profileId = p.id
-          WHERE u.inviteToken = ? AND u.claimedAt IS NOT NULL`,
-    args: [token],
+          WHERE (u.inviteToken = ? OR u.id = ?) AND u.claimedAt IS NOT NULL`,
+    args: [token, token],
   })
 
   if (userResult.rows.length === 0) {
