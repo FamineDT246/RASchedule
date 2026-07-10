@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -48,6 +48,15 @@ export function InstructorView({ user }: { user: AuthUser }) {
   const { data: myProfile } = useQuery({ queryKey: ['my-profile'], queryFn: fetchMyProfile })
   const [viewMode, setViewMode] = useState<'assignments' | 'events' | 'calendar'>('assignments')
   const [selectedEvent, setSelectedEvent] = useState<EventView | null>(null)
+
+  // Close event drawer with Esc
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedEvent) setSelectedEvent(null)
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [selectedEvent])
 
   const optInMutation = useMutation({
     mutationFn: async (args: { eventId: string; status: string }) => {
@@ -792,6 +801,35 @@ export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ---------- Simple Carousel (5 items per group) ----------
+
+function CarouselGroup({ items, itemsPerGroup = 5 }: { items: React.ReactNode[], itemsPerGroup?: number }) {
+  // Split items into groups of itemsPerGroup
+  const groups: React.ReactNode[][] = []
+  for (let i = 0; i < items.length; i += itemsPerGroup) {
+    groups.push(items.slice(i, i + itemsPerGroup))
+  }
+  if (groups.length === 0) return null
+
+  return (
+    <div className="space-y-4">
+      {groups.map((group, gi) => (
+        <div
+          key={gi}
+          className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
+          style={{ scrollbarWidth: 'thin' }}
+        >
+          {group.map((item, ii) => (
+            <div key={ii} className="min-w-[280px] sm:min-w-[300px] snap-start shrink-0">
+              {item}
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   )
 }

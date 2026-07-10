@@ -257,13 +257,13 @@ export function formatTime(t: string): string {
 
 // Does the event fall on the given date?
 // Also returns true if the date matches the event's optional setup date.
-// Archived events don't show on the calendar (they're in the Events tab archive).
+// Draft events don't show on the calendar. Archived events DO show (dimmed) for history.
 export function eventOnDate(ev: EventView, dateISO: string): boolean {
-  // Draft and Archived events never show on the calendar
-  if (ev.status === 'Draft' || ev.status === 'Archived') return false
+  // Draft events never show on the calendar
+  if (ev.status === 'Draft') return false
   // Check setup date
   if (ev.setupDate && ev.setupDate === dateISO) return true
-  // Cancelled events still show (greyed out) so the boss can see history
+  // Cancelled + Archived events still show (dimmed) so the boss can see history
   if (ev.specificDatesList && ev.specificDatesList.length > 0) {
     return ev.specificDatesList.includes(dateISO)
   }
