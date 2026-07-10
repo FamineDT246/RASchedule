@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from "@/lib/auth-helpers"
 import { db } from '@/lib/db'
 import { getAuthUser } from '../auth/me/route'
 
@@ -20,6 +21,7 @@ export async function GET() {
 }
 
 // POST /api/profiles — create
+const authCheck = await requireAdmin(req); if (authCheck) return authCheck;
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const id = crypto.randomUUID()
@@ -38,6 +40,7 @@ export async function POST(req: NextRequest) {
 }
 
 // PUT /api/profiles?id=...
+const authCheck2 = await requireAdmin(req); if (authCheck2) return authCheck2;
 export async function PUT(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
@@ -73,6 +76,7 @@ export async function PUT(req: NextRequest) {
 }
 
 // DELETE /api/profiles?id=...
+const authCheck3 = await requireAdmin(req); if (authCheck3) return authCheck3;
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')

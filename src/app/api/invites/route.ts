@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from "@/lib/auth-helpers"
 import { db } from '@/lib/db'
 
 // GET /api/invites
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const authGet = await requireAdmin(req); if (authGet) return authGet;
   const result = await db.execute({
     sql: `SELECT u.*, p.name as profileName FROM User u LEFT JOIN Profile p ON u.profileId = p.id ORDER BY u.createdAt DESC`,
   })
@@ -22,6 +24,7 @@ export async function GET() {
 }
 
 // POST /api/invites — create invite linked to existing staff
+const authPost = await requireAdmin(req); if (authPost) return authPost;
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { name, profileId } = body as { name: string; profileId?: string }
@@ -52,6 +55,7 @@ export async function POST(req: NextRequest) {
 }
 
 // DELETE /api/invites?id=...
+const authDel = await requireAdmin(req); if (authDel) return authDel;
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')

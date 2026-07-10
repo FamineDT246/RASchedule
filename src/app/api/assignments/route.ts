@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from "@/lib/auth-helpers"
 import { db } from '@/lib/db'
 import { getAuthUser } from '../auth/me/route'
 
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/assignments — create single assignment
+const authPost = await requireAdmin(req); if (authPost) return authPost;
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { eventId, profileId, date, overrideFlag, isAlternative, shirtColor } = body as {
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest) {
 }
 
 // PATCH /api/assignments?id=...
+const authPatch = await requireAdmin(req); if (authPatch) return authPatch;
 export async function PATCH(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
@@ -91,6 +94,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 // DELETE /api/assignments?id=...
+const authDel = await requireAdmin(req); if (authDel) return authDel;
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')

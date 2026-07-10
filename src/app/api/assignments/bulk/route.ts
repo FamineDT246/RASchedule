@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from "@/lib/auth-helpers"
 import { db } from '@/lib/db'
 
 // POST /api/assignments/bulk — assign to all days of an event
+const authBulk = await requireAdmin(req); if (authBulk) return authBulk;
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { eventId, profileId } = body as { eventId: string; profileId: string }

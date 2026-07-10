@@ -155,18 +155,17 @@ export function CalendarView({ events, assignments, profiles, myProfileId, readO
               <div
                 key={dateISO}
                 className={cn(
-                  'min-h-[80px] sm:min-h-[100px] border-r border-b border-border/40 last:border-r-0 p-1 flex flex-col gap-0.5',
-                  !isInMonth && 'bg-muted/10',
-                  isToday && 'bg-emerald-500/[0.06]',
-                  isPast && !isToday && 'bg-zinc-500/[0.02]',
+                  'min-h-[90px] sm:min-h-[120px] border-r border-b border-border/40 last:border-r-0 p-1 sm:p-1.5 flex flex-col gap-0.5',
+                  !isInMonth && 'bg-muted/5',
+                  isToday && 'bg-emerald-500/[0.08] ring-1 ring-emerald-400/30 ring-inset',
+                  isPast && !isToday && 'bg-zinc-500/[0.03]',
                 )}
               >
                 <div className={cn(
-                  'text-[10px] font-semibold tabular-nums',
+                  'text-[10px] sm:text-xs font-semibold tabular-nums mb-0.5',
                   !isInMonth && 'text-muted-foreground/30',
                   isToday && 'text-emerald-400',
-                  isPast && !isToday && !isInMonth && 'text-muted-foreground/20',
-                  isPast && !isToday && isInMonth && 'text-muted-foreground/40',
+                  isPast && !isToday && isInMonth && 'text-muted-foreground/50',
                 )}>
                   {dayNum}
                 </div>
@@ -183,35 +182,31 @@ export function CalendarView({ events, assignments, profiles, myProfileId, readO
                       key={ev.id}
                       onClick={() => !readOnly && onSelect?.(ev.id, dateISO)}
                       className={cn(
-                        'text-left rounded px-1 py-0.5 text-[9px] sm:text-[10px] leading-tight truncate transition-all',
-                        !readOnly && 'cursor-pointer hover:scale-[1.02]',
-                        isPast ? 'opacity-50' : '',
+                        'text-left rounded px-1 py-0.5 text-[9px] sm:text-[10px] leading-tight truncate transition-all border',
+                        !readOnly && 'cursor-pointer hover:scale-[1.02] hover:shadow-sm',
+                        isPast ? 'opacity-60' : '',
                         myAssignment ? 'ring-1 ring-emerald-400' : '',
+                        colors.chip,
                       )}
-                      style={{ backgroundColor: 'var(--tw-color, transparent)' }}
                       title={`${ev.name} — ${formatTime(ev.startTime)}${ev.location ? ' @ ' + ev.location : ''}${dayAssignments.length ? ` (${primaries}/${ev.requiredInstructors} instructors)` : ''}${myAssignment ? ' — YOU ARE ASSIGNED' : ''}`}
                     >
-                      <div className={cn('flex items-center gap-0.5 rounded px-1 py-0.5', colors.chip)}>
+                      <div className="flex items-center gap-0.5">
                         <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', colors.dot)} />
                         <span className="truncate font-medium">{ev.name}</span>
                       </div>
-                      {!readOnly && (
-                        <div className="flex items-center gap-1 mt-0.5 px-1 text-muted-foreground">
-                          <span className="flex items-center gap-0.5">
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {!readOnly && (
+                          <span className="flex items-center gap-0.5 opacity-70">
                             <Users className="h-2 w-2" />
                             {primaries}/{ev.requiredInstructors}
                           </span>
-                          {myAssignment && (
-                            <span className="text-emerald-400 font-semibold">★</span>
-                          )}
-                        </div>
-                      )}
-                      {readOnly && myProfileId && (
-                        <div className="px-1 mt-0.5">
-                          {myAssignment ? (
-                            <span className="text-emerald-400 text-[9px] font-semibold">★ Assigned</span>
-                          ) : null}
-                        </div>
+                        )}
+                        {myAssignment && (
+                          <span className="text-emerald-300 font-bold ml-auto">★</span>
+                        )}
+                      </div>
+                      {readOnly && myAssignment && (
+                        <span className="text-emerald-300 text-[9px] font-bold">★ You're in</span>
                       )}
                     </button>
                   )

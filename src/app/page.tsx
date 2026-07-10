@@ -20,6 +20,7 @@ import { TeamTab } from '@/components/scheduler/TeamTab'
 import { ConflictSummaryTab } from '@/components/scheduler/ConflictSummaryTab'
 import { PrintLayout } from '@/components/scheduler/PrintLayout'
 import { CalendarView } from '@/components/scheduler/CalendarView'
+import { WorkloadTab } from '@/components/scheduler/WorkloadTab'
 import { LoginForm } from '@/components/scheduler/LoginForm'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
 import { PWAInstallPrompt } from '@/components/scheduler/PWAInstallPrompt'
@@ -33,6 +34,8 @@ import {
 
 // ---- data fetch ----
 async function fetchSchedule(): Promise<ScheduleData> {
+  // Auto-archive past events before loading (fire-and-forget)
+  fetch('/api/auto-archive', { method: 'POST' }).catch(() => {})
   const r = await fetch('/api/schedule?from=2026-06-01&to=2026-09-30')
   if (!r.ok) throw new Error('Failed to load schedule')
   return r.json()
@@ -44,7 +47,7 @@ async function fetchMe(): Promise<{ user: AuthUser | null }> {
   return r.json()
 }
 
-type Tab = 'scheduler' | 'calendar' | 'events' | 'team' | 'conflicts' | 'invites'
+type Tab = 'scheduler' | 'calendar' | 'events' | 'team' | 'conflicts' | 'workload' | 'invites'
 
 export default function Home() {
   const qc = useQueryClient()
@@ -521,6 +524,9 @@ export default function Home() {
           <TabButton active={tab === 'conflicts'} onClick={() => setTab('conflicts')}>
             Conflicts
           </TabButton>
+          <TabButton active={tab === 'workload'} onClick={() => setTab('workload')}>
+            Workload
+          </TabButton>
           <TabButton active={tab === 'invites'} onClick={() => setTab('invites')}>
             Invites
           </TabButton>
@@ -610,6 +616,7 @@ export default function Home() {
           {tab === 'events' && <EventsManagerTab />}
           {tab === 'team' && <TeamTab />}
           {tab === 'conflicts' && <ConflictSummaryTab onJumpToEvent={handleJumpToEvent} />}
+          {tab === 'workload' && <WorkloadTab />}
           {tab === 'invites' && <InvitesTab />}
         </div>
       </div>

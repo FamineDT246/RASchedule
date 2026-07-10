@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireAdmin } from '@/lib/auth-helpers'
 
 function parseList(s: string | null | undefined): string[] {
   if (!s) return []
@@ -31,6 +32,7 @@ export async function GET() {
 }
 
 // POST /api/events — create
+const authCheck = await requireAdmin(req); if (authCheck) return authCheck;
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const id = crypto.randomUUID()
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest) {
 }
 
 // PUT /api/events?id=...
+const authCheck2 = await requireAdmin(req); if (authCheck2) return authCheck2;
 export async function PUT(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
@@ -126,6 +129,7 @@ export async function PUT(req: NextRequest) {
 }
 
 // DELETE /api/events?id=...
+const authCheck3 = await requireAdmin(req); if (authCheck3) return authCheck3;
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
