@@ -182,7 +182,7 @@ async function main() {
   const passwordHash = await bcrypt.hash('changeme', 10)
   await db.execute({
     sql: `INSERT INTO User (id, name, email, role, passwordHash, profileId, inviteToken, claimedAt, createdAt, updatedAt)
-          VALUES (?, 'Jelani Payne', 'jelani@robotadventure.local', 'admin', ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`,
+          VALUES (?, 'Jelani Payne', 'jelani@ra-syncbot.com', 'admin', ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`,
     args: [crypto.randomUUID(), passwordHash, profileIds['Jelani Payne'] ?? null, crypto.randomUUID()],
   })
 
@@ -192,7 +192,7 @@ async function main() {
   console.log(`  Events:      ${EVENTS.length}`)
   console.log(`  Assignments: ${PRESET_ASSIGNMENTS.reduce((sum, a) => sum + a.staff.length, 0)}`)
   console.log(`  Users:       1 (admin)`)
-  console.log(`\n  Admin login: jelani@robotadventure.local / changeme`)
+  console.log(`\n  Admin login: jelani@ra-syncbot.com / changeme`)
   console.log(`  ⚠️  Change this password immediately after first login!`)
 }
 

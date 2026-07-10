@@ -52,7 +52,7 @@ export function PrintLayout({ weekStartISO, events, assignments }: Props) {
       <div className="mb-6 pb-4 border-b-2 border-black">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Robot Adventures — Weekly Schedule</h1>
+            <h1 className="text-2xl font-bold">RA Syncbot — Weekly Schedule</h1>
             <p className="text-sm text-gray-600 mt-1">
               Week of {formatShortDate(dates[0])} – {formatShortDate(dates[6])}
             </p>
@@ -183,7 +183,7 @@ export function PrintLayout({ weekStartISO, events, assignments }: Props) {
 
       {/* Footer */}
       <div className="mt-8 pt-4 border-t border-gray-300 text-[10px] text-gray-500 text-center">
-        Robot Adventures Camp Scheduler · {formatShortDate(dates[0])} – {formatShortDate(dates[6])}
+        RA Syncbot Camp Scheduler · {formatShortDate(dates[0])} – {formatShortDate(dates[6])}
       </div>
     </div>
   )

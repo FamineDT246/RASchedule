@@ -1,4 +1,4 @@
-// Pure conflict-detection logic for the Robot Adventures scheduler.
+// Pure conflict-detection logic for the RA Syncbot scheduler.
 // Imported by both server (API route) and client (UI ring feedback).
 
 export type ConflictLevel = 'ok' | 'warning' | 'error'

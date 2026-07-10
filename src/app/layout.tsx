@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Robot Adventures — Camp Scheduler",
-  description: "Drag-and-drop instructor scheduling for Robot Adventures camps and workshops.",
+  title: "RA Syncbot — Camp Scheduler",
+  description: "Drag-and-drop instructor scheduling for RA Syncbot camps and workshops.",
   manifest: "/manifest.json",
   icons: {
     icon: [

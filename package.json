@@ -1,8 +1,8 @@
 {
-  "name": "robot-adventures-scheduler",
-  "version": "1.0.0",
+  "name": "ra-syncbot",
+  "version": "1.1.0",
   "private": true,
-  "description": "Drag-and-drop camp & workshop instructor scheduling for Robot Adventures (Barbados).",
+  "description": "Drag-and-drop camp & workshop instructor scheduling for RA Syncbot (Barbados).",
   "license": "UNLICENSED",
   "scripts": {
     "dev": "next dev -p 3000",

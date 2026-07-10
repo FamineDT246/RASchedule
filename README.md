@@ -1,6 +1,6 @@
-# Robot Adventures — Camp Scheduler
+# RA Syncbot — Camp Scheduler
 
-A production-grade, drag-and-drop instructor scheduling application for Robot Adventures (Barbados).
+A production-grade, drag-and-drop instructor scheduling application for RA Syncbot (Barbados).
 
 Built with **Next.js 16**, **TypeScript**, **Tailwind CSS 4**, **shadcn/ui**, and **Turso (libSQL)**.
 

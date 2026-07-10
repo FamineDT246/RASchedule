@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   const user = userResult.rows[0] as any
   if (!user.profileId) {
-    return new NextResponse('BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Robot Adventures//Scheduler//EN\nEND:VCALENDAR', {
+    return new NextResponse('BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//RA Syncbot//Scheduler//EN\nEND:VCALENDAR', {
       headers: { 'Content-Type': 'text/calendar; charset=utf-8' },
     })
   }
@@ -47,10 +47,10 @@ export async function GET(req: NextRequest) {
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Robot Adventures//Scheduler//EN',
+    'PRODID:-//RA Syncbot//Scheduler//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-CALNAME:Robot Adventures Schedule`,
+    `X-WR-CALNAME:RA Syncbot Schedule`,
   ]
 
   for (const a of assignments.rows as any[]) {

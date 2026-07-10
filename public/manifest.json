@@ -1,7 +1,7 @@
 {
-  "name": "Robot Adventures Scheduler",
+  "name": "RA Syncbot Scheduler",
   "short_name": "RA Scheduler",
-  "description": "Camp & workshop instructor scheduling for Robot Adventures",
+  "description": "Camp & workshop instructor scheduling for RA Syncbot",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",

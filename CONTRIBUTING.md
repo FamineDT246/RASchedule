@@ -1,6 +1,6 @@
 # Contributing Guide
 
-This guide is for developers maintaining or extending the Robot Adventures Scheduler.
+This guide is for developers maintaining or extending the RA Syncbot Scheduler.
 
 ---
 

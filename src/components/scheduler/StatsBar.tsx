@@ -56,7 +56,7 @@ export function StatsBar({
           RA
         </div>
         <div className="min-w-0 hidden sm:block">
-          <h1 className="text-sm font-semibold leading-tight truncate">Robot Adventures</h1>
+          <h1 className="text-sm font-semibold leading-tight truncate">RA Syncbot</h1>
           <p className="text-[10px] text-muted-foreground truncate">
             Barbados time (AST)
           </p>
