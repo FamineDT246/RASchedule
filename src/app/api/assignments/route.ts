@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from "@/lib/auth-helpers"
 import { db } from '@/lib/db'
 import { notifyAssignmentCreated, notifyAssignmentRemoved } from '@/lib/email'
-import { getAuthUser } from '../auth/me/route'
+import { getAuthUser } from '@/lib/auth-helpers'
 
 // GET /api/assignments?eventId=...&profileId=...&date=YYYY-MM-DD
 export async function GET(req: NextRequest) {

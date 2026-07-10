@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getAuthUser } from '../auth/me/route'
+import { getAuthUser } from '@/lib/auth-helpers'
 
 // GET /api/notifications — returns notifications for the current user
 export async function GET(req: NextRequest) {

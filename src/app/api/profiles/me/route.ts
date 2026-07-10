@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getAuthUser } from '../../auth/me/route'
+import { getAuthUser } from '@/lib/auth-helpers'
 
 function parseList(s: string | null | undefined): string[] {
   if (!s) return []

@@ -5,7 +5,6 @@ import { getAuthUser } from '@/lib/auth-helpers'
 import { saveSessionToResponse } from '@/lib/session'
 
 // Re-export getAuthUser for backward compatibility (other routes import from here)
-export { getAuthUser } from '@/lib/auth-helpers'
 
 // GET /api/auth/me — returns the currently logged-in user (or null)
 export async function GET(req: NextRequest) {
