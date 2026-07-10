@@ -18,7 +18,7 @@ import {
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import {
-  AlertTriangle, Users, CalendarX, Clock, ShieldAlert, CheckCircle2, X, ArrowRight,
+  AlertTriangle, Users, CalendarX, Clock, ShieldAlert, CheckCircle2, X, ArrowRight, Wrench,
 } from 'lucide-react'
 import { Accordion } from './Accordion'
 
@@ -33,6 +33,7 @@ type Issue =
   | { type: 'unavailable'; date: string; profileId: string; profileName: string; eventName: string; eventId: string }
   | { type: 'fatigue'; profileId: string; profileName: string; streak: number; dates: string[] }
   | { type: 'unfilled'; date: string; eventId: string; eventName: string; hostColor: string; filled: number; needed: number }
+  | { type: 'skill-gap'; date: string; eventId: string; eventName: string; hostColor: string; profileId: string; profileName: string; missingSkills: string[] }
 
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number)
@@ -50,11 +51,12 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
   })
 
   const issues = useMemo(() => {
-    if (!data) return { doubleBookings: [], unavailable: [], fatigue: [], unfilled: [] } as {
+    if (!data) return { doubleBookings: [], unavailable: [], fatigue: [], unfilled: [], skillGaps: [] } as {
       doubleBookings: Issue[]
       unavailable: Issue[]
       fatigue: Issue[]
       unfilled: Issue[]
+      skillGaps: Issue[]
     }
 
     const profiles = data.profiles as ProfileView[]
@@ -206,10 +208,32 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
     unavailable.sort(sortByDate)
     unfilled.sort(sortByDate)
 
-    return { doubleBookings, unavailable, fatigue, unfilled }
+    // 5. Skill gaps: instructors assigned to events where they don't have the required skills
+    const skillGaps: Issue[] = []
+    for (const a of assignments) {
+      const profile = profiles.find(p => p.id === a.profileId)
+      const ev = events.find(e => e.id === a.eventId)
+      if (!profile || !ev || ev.requiredSkills.length === 0) continue
+      const missing = ev.requiredSkills.filter(s => !profile.skillsList.includes(s))
+      if (missing.length > 0) {
+        skillGaps.push({
+          type: 'skill-gap',
+          date: a.date,
+          eventId: ev.id,
+          eventName: ev.name,
+          hostColor: ev.hostColor,
+          profileId: profile.id,
+          profileName: profile.name,
+          missingSkills: missing,
+        })
+      }
+    }
+    skillGaps.sort(sortByDate)
+
+    return { doubleBookings, unavailable, fatigue, unfilled, skillGaps }
   }, [data])
 
-  const totalIssues = issues.doubleBookings.length + issues.unavailable.length + issues.fatigue.length + issues.unfilled.length
+  const totalIssues = issues.doubleBookings.length + issues.unavailable.length + issues.fatigue.length + issues.unfilled.length + issues.skillGaps.length
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -261,6 +285,12 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
                 icon={<Users className="h-4 w-4" />}
                 label="Unfilled slots"
                 count={issues.unfilled.length}
+                tone="warn"
+              />
+              <SummaryCard
+                icon={<Wrench className="h-4 w-4" />}
+                label="Skill gaps"
+                count={issues.skillGaps.length}
                 tone="warn"
               />
             </div>
@@ -368,6 +398,44 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
                         </span>
                         <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-emerald-300" />
                       </div>
+                    </button>
+                  </IssueCard>
+                )
+              })}
+            </IssueSection>
+          )}
+
+          {/* Skill gaps */}
+          {issues.skillGaps.length > 0 && (
+            <IssueSection title="Skill gaps (needs practice gear)" icon={<Wrench className="h-3.5 w-3.5" />} tone="warn">
+              {issues.skillGaps.map((issue, i) => {
+                const si = issue as any
+                const colors = hostColor(si.hostColor)
+                return (
+                  <IssueCard key={i}>
+                    <button
+                      onClick={() => onJumpToEvent(si.eventId, si.date)}
+                      className="flex items-center justify-between gap-2 w-full text-left hover:text-emerald-300 transition-colors group"
+                      aria-label={`Jump to ${si.eventName} on ${formatPrettyDate(si.date)}`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={cn('h-2 w-2 rounded-full shrink-0', colors.bar)} />
+                          <p className="text-sm font-medium truncate">{si.profileName}</p>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {si.eventName} · {formatPrettyDate(si.date)}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {si.missingSkills.map((skill: string) => (
+                            <span key={skill} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-0.5">
+                              <Wrench className="h-2 w-2" />
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-emerald-300 shrink-0" />
                     </button>
                   </IssueCard>
                 )

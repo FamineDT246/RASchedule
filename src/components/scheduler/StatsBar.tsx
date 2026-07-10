@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Users, AlertTriangle, CheckCircle2, CalendarDays, ChevronDown, KeyRound, LogOut, User } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Users, AlertTriangle, CheckCircle2, CalendarDays, ChevronDown, KeyRound, LogOut, User, Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -20,6 +21,18 @@ export function StatsBar({
   userName, userEmail, onChangePassword, onLogout,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const { data: notifData } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const r = await fetch('/api/notifications')
+      if (!r.ok) return { notifications: [] }
+      return r.json()
+    },
+    refetchInterval: 60000, // refresh every minute
+  })
+  const notifications = notifData?.notifications ?? []
+  const unreadCount = notifications.length
   const fillPct = totalSlots === 0 ? 0 : Math.round((filledSlots / totalSlots) * 100)
   const stats = [
     { icon: <CalendarDays className="h-3.5 w-3.5" />, label: 'Current week', value: weekLabel, tone: 'neutral' as const },
@@ -68,6 +81,51 @@ export function StatsBar({
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* Notifications */}
+        <div className="relative">
+          <button
+            onClick={() => setNotifOpen(o => !o)}
+            className="relative p-2 rounded-md border border-border/60 hover:bg-muted text-muted-foreground min-h-[32px] flex items-center justify-center"
+            aria-label="Notifications"
+            aria-expanded={notifOpen}
+          >
+            <Bell className="h-3.5 w-3.5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          {notifOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-50 w-72 sm:w-80 bg-card border border-border/60 rounded-md shadow-lg max-h-96 overflow-y-auto">
+                <div className="px-3 py-2 border-b border-border/40">
+                  <p className="text-xs font-semibold">Notifications</p>
+                  <p className="text-[10px] text-muted-foreground">Last 7 days</p>
+                </div>
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">
+                    No new notifications
+                  </div>
+                ) : (
+                  notifications.slice(0, 20).map((n: any) => (
+                    <div key={n.id} className="px-3 py-2 border-b border-border/20 last:border-b-0 hover:bg-muted/40">
+                      <div className="flex items-start gap-2">
+                        <span className="text-sm shrink-0">{n.icon}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium truncate">{n.title}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{n.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
         {/* User menu */}
         <div className="relative">
           <button

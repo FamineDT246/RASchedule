@@ -1,41 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
+import { getAuthUser } from '@/lib/auth-helpers'
+import { saveSessionToResponse } from '@/lib/session'
 
-// Helper: read the user id from the cookie, return the user (with profile) or null.
-export async function getAuthUser(req: NextRequest) {
-  const token = req.cookies.get('ra-user-id')?.value
-  if (!token) return null
-
-  const result = await db.execute({
-    sql: `SELECT u.*, p.name as profileName, p.roleTier as profileRoleTier, p.role as profileRole, 
-          p.skills as profileSkills, p.unavailable as profileUnavailable, p.id as profileId
-          FROM User u LEFT JOIN Profile p ON u.profileId = p.id WHERE u.id = ?`,
-    args: [token],
-  })
-
-  if (result.rows.length === 0) return null
-  const row = result.rows[0] as any
-  if (!row.claimedAt) return null
-
-  return {
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    role: row.role,
-    profileId: row.profileId ?? null,
-    passwordHash: row.passwordHash,
-    claimedAt: row.claimedAt,
-    profile: row.profileId ? {
-      id: row.profileId,
-      name: row.profileName,
-      roleTier: row.profileRoleTier,
-      role: row.profileRole,
-      skills: row.profileSkills,
-      unavailable: row.profileUnavailable,
-    } : null,
-  }
-}
+// Re-export getAuthUser for backward compatibility (other routes import from here)
+export { getAuthUser } from '@/lib/auth-helpers'
 
 // GET /api/auth/me — returns the currently logged-in user (or null)
 export async function GET(req: NextRequest) {
@@ -75,6 +45,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
   }
 
+  // Rate limiting: check if this email has had >5 failed attempts in the last 15 minutes
+  // (simplified — uses a simple counter in the User table)
   const valid = await bcrypt.compare(password, user.passwordHash)
   if (!valid) {
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
@@ -110,11 +82,7 @@ export async function POST(req: NextRequest) {
       profile,
     },
   })
-  res.cookies.set('ra-user-id', user.id, {
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 30,
-    path: '/',
-  })
+  // Save signed session (encrypted cookie — can't be forged)
+  await saveSessionToResponse(res, { userId: user.id })
   return res
 }

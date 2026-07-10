@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
+import { saveSessionToResponse } from '@/lib/session'
 
 // POST /api/auth/claim — claim an invite with password
 export async function POST(req: NextRequest) {
@@ -59,11 +60,7 @@ export async function POST(req: NextRequest) {
       profileId: user.profileId,
     },
   })
-  res.cookies.set('ra-user-id', user.id, {
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 30,
-    path: '/',
-  })
+  // Save signed session
+  await saveSessionToResponse(res, { userId: user.id })
   return res
 }

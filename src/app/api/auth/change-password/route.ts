@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
-import { getAuthUser } from '../me/route'
+import { getAuthUser } from '@/lib/auth-helpers'
 
 // POST /api/auth/change-password
 export async function POST(req: NextRequest) {

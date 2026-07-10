@@ -14,7 +14,7 @@ import {
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import {
-  X, MapPin, Clock, Users, Calendar, GraduationCap, Tag, Trash2, Shield, Shirt, Star, Lock,
+  X, MapPin, Clock, Users, Calendar, GraduationCap, Tag, Trash2, Shield, Shirt, Star, Lock, Wrench,
 } from 'lucide-react'
 
 type Props = {
@@ -131,6 +131,7 @@ export function EventDetailDrawer({
                   assignment={a}
                   event={event}
                   profile={profiles.find(p => p.id === a.profileId)}
+                  profiles={profiles}
                   onRemove={onRemove}
                   onUpdate={onUpdateAssignment}
                   isPast={isPast}
@@ -152,6 +153,7 @@ export function EventDetailDrawer({
                     assignment={a}
                     event={event}
                     profile={profiles.find(p => p.id === a.profileId)}
+                    profiles={profiles}
                     onRemove={onRemove}
                     onUpdate={onUpdateAssignment}
                     isPast={isPast}
@@ -245,11 +247,12 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
 }
 
 function AssignmentRow({
-  assignment, event, profile, onRemove, onUpdate, isPast,
+  assignment, event, profile, profiles, onRemove, onUpdate, isPast,
 }: {
   assignment: AssignmentView
   event: EventView
   profile?: ProfileView
+  profiles: ProfileView[]
   onRemove: (id: string) => void
   onUpdate: (id: string, patch: { isAlternative?: boolean; shirtColor?: string | null }) => void
   isPast?: boolean
@@ -269,6 +272,21 @@ function AssignmentRow({
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium truncate">{assignment.profileName}</p>
         <p className="text-[10px] text-muted-foreground">{assignment.profileRoleTier}</p>
+        {/* Skill match indicator */}
+        {(() => {
+          const p = profiles.find(p => p.id === assignment.profileId)
+          if (!p) return null
+          const missing = event.requiredSkills.filter(s => !p.skillsList.includes(s))
+          if (missing.length === 0) return null
+          return (
+            <div className="mt-1 flex items-center gap-1 flex-wrap">
+              <span className="text-[9px] text-amber-300 flex items-center gap-0.5">
+                <Wrench className="h-2.5 w-2.5" />
+                Needs practice: {missing.join(', ')}
+              </span>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Shirt color picker — disabled for past dates */}

@@ -115,20 +115,33 @@ export function checkAvailability(
 }
 
 /**
- * Check 2 — Skill & Role Matching.
+ * Check 2 — Skill & Role Matching (INFORMATIONAL, non-blocking).
  *
- * DISABLED per product decision: the boss assigns whoever he wants after
- * instructors opt in. Skills are still displayed on roster cards for
- * informational purposes, but they do NOT trigger any conflict.
- *
- * Kept as a no-op so the function signature stays stable if we ever
- * want to reintroduce it as a soft hint.
+ * Returns a soft warning listing which required skills the instructor doesn't have.
+ * This never blocks assignment — the boss can assign anyone. The warning is shown
+ * so the boss knows who might need practice gear (drones, robots, etc.).
  */
 export function checkSkillMatch(
-  _profile: ProfileLite,
-  _event: EventLite,
+  profile: ProfileLite,
+  event: EventLite,
 ): ConflictResult {
-  return { level: 'ok', reasons: [] }
+  const reasons: string[] = []
+  const missing = event.requiredSkills.filter(s => !profile.skills.includes(s))
+  if (missing.length > 0) {
+    reasons.push(`Missing skills: ${missing.join(', ')}`)
+  }
+  return { level: reasons.length ? 'warning' : 'ok', reasons }
+}
+
+/**
+ * Get the list of missing skills for a profile on an event.
+ * Used by the UI to show "Needs practice: Drones, Python" badges.
+ */
+export function getMissingSkills(
+  profileSkills: string[],
+  eventSkills: string[],
+): string[] {
+  return eventSkills.filter(s => !profileSkills.includes(s))
 }
 
 /**
