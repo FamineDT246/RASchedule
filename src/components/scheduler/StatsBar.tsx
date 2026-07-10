@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Users, AlertTriangle, CheckCircle2, CalendarDays, ChevronDown, KeyRound, LogOut, User, Bell } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import { Users, AlertTriangle, CheckCircle2, CalendarDays, ChevronDown, KeyRound, LogOut, User, Bell, Sun, Moon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -20,6 +21,8 @@ export function StatsBar({
   totalSlots, filledSlots, conflictCount, weekLabel,
   userName, userEmail, onChangePassword, onLogout,
 }: Props) {
+  const { theme, setTheme } = useTheme()
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const { data: notifData } = useQuery({
@@ -81,6 +84,18 @@ export function StatsBar({
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* Theme toggle */}
+        {mounted && (
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-md border border-border/60 hover:bg-muted text-muted-foreground min-h-[32px] flex items-center justify-center"
+            aria-label="Toggle theme"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          </button>
+        )}
+
         {/* Notifications */}
         <div className="relative">
           <button

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getAuthUser } from '../auth/me/route'
+import { getAuthUser } from '@/lib/auth-helpers'
+import { notifyOptInReceived } from '@/lib/email'
 
 // GET /api/opt-ins?eventId=...
 export async function GET(req: NextRequest) {
@@ -69,6 +70,10 @@ export async function POST(req: NextRequest) {
       sql: "UPDATE OptIn SET status = ?, note = ?, updatedAt = datetime('now') WHERE id = ?",
       args: [status, note ?? null, id],
     })
+    // Email the admin
+    const eventResult = await db.execute({ sql: 'SELECT name FROM Event WHERE id = ?', args: [eventId] })
+    const eventName = eventResult.rows.length > 0 ? (eventResult.rows[0] as any).name : 'Unknown'
+    notifyOptInReceived(user.name, status, eventName).catch(() => {})
     return NextResponse.json({ id, userId: user.id, eventId, status, note })
   } else {
     const id = crypto.randomUUID()
@@ -77,6 +82,10 @@ export async function POST(req: NextRequest) {
             VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
       args: [id, user.id, eventId, status, note ?? null],
     })
+    // Email the admin
+    const eventResult = await db.execute({ sql: 'SELECT name FROM Event WHERE id = ?', args: [eventId] })
+    const eventName = eventResult.rows.length > 0 ? (eventResult.rows[0] as any).name : 'Unknown'
+    notifyOptInReceived(user.name, status, eventName).catch(() => {})
     return NextResponse.json({ id, userId: user.id, eventId, status, note }, { status: 201 })
   }
 }

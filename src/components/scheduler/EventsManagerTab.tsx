@@ -216,6 +216,10 @@ function EventEditDrawer({ event, onClose, onSaved }: {
     specificDates: (event?.specificDatesList ?? []).join('\n'),
     notes: event?.notes ?? '',
     skills: (event?.requiredSkills ?? []).join(', '),
+    // Setup date (optional)
+    hasSetup: !!(event as any)?.setupDate,
+    setupDate: (event as any)?.setupDate ? String(event.setupDate).slice(0, 10) : '',
+    setupTime: (event as any)?.setupTime ?? '14:00',
     // Recurrence fields
     recurring: false,
     recurringDays: [] as number[], // 0=Mon .. 6=Sun
@@ -290,6 +294,8 @@ function EventEditDrawer({ event, onClose, onSaved }: {
         specificDates,
         notes: form.notes || null,
         skills: form.skills.split(',').map(s => s.trim()).filter(Boolean),
+        setupDate: form.hasSetup && form.setupDate ? form.setupDate : null,
+        setupTime: form.hasSetup && form.setupTime ? form.setupTime : null,
       }
       const url = isEdit ? `/api/events?id=${event!.id}` : '/api/events'
       const method = isEdit ? 'PUT' : 'POST'
@@ -478,6 +484,47 @@ function EventEditDrawer({ event, onClose, onSaved }: {
                     Select at least one weekday above to see the preview.
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Setup date (optional) */}
+          <div className="border border-border/60 rounded-md p-3 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.hasSetup}
+                onChange={e => setForm(f => ({ ...f, hasSetup: e.target.checked }))}
+                className="h-4 w-4 rounded accent-emerald-500"
+              />
+              <span className="text-sm font-medium">Setup day</span>
+              <span className="text-[10px] text-muted-foreground">
+                (e.g. go a day before to set up equipment)
+              </span>
+            </label>
+            {form.hasSetup && (
+              <div className="pl-6 border-l-2 border-emerald-500/30 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Setup date">
+                    <input
+                      type="date"
+                      value={form.setupDate}
+                      onChange={e => setForm(f => ({ ...f, setupDate: e.target.value }))}
+                      className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </Field>
+                  <Field label="Setup time">
+                    <input
+                      type="time"
+                      value={form.setupTime}
+                      onChange={e => setForm(f => ({ ...f, setupTime: e.target.value }))}
+                      className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  </Field>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Staff assigned to this event on the setup date will be setting up equipment, not teaching.
+                </p>
               </div>
             )}
           </div>

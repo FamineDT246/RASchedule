@@ -38,10 +38,10 @@ export async function POST(req: NextRequest) {
   const id = crypto.randomUUID()
 
   await db.execute({
-    sql: `INSERT INTO Event (id, code, name, host, location, description, lengthDays, startDate, endDate, 
-          startTime, endTime, status, specificDates, ageRange, participantCount, requiredInstructors, 
-          notes, hostColor, createdAt, updatedAt)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+    sql: `INSERT INTO Event (id, code, name, host, location, description, lengthDays, startDate, endDate,
+          startTime, endTime, status, specificDates, ageRange, participantCount, requiredInstructors,
+          notes, hostColor, setupDate, setupTime, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
     args: [
       id, body.code ?? null, body.name, body.host, body.location ?? null, body.description ?? null,
       body.lengthDays ?? null,
@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
       Array.isArray(body.specificDates) && body.specificDates.length ? body.specificDates.join(',') : null,
       body.ageRange ?? null, body.participantCount ?? null, body.requiredInstructors ?? 2,
       body.notes ?? null, body.hostColor ?? 'slate',
+      body.setupDate ? new Date(body.setupDate + 'T00:00:00.000Z').toISOString() : null,
+      body.setupTime ?? null,
     ],
   })
 
@@ -116,6 +118,14 @@ export async function PUT(req: NextRequest) {
   if ('specificDates' in body) {
     updates.push('specificDates = ?')
     args.push(Array.isArray(body.specificDates) && body.specificDates.length ? body.specificDates.join(',') : null)
+  }
+  if ('setupDate' in body) {
+    updates.push('setupDate = ?')
+    args.push(body.setupDate ? new Date(body.setupDate + 'T00:00:00.000Z').toISOString() : null)
+  }
+  if ('setupTime' in body) {
+    updates.push('setupTime = ?')
+    args.push(body.setupTime ?? null)
   }
 
   if (updates.length > 0) {

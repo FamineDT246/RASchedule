@@ -24,7 +24,7 @@ import { WorkloadTab } from '@/components/scheduler/WorkloadTab'
 import { LoginForm } from '@/components/scheduler/LoginForm'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
 import { PWAInstallPrompt } from '@/components/scheduler/PWAInstallPrompt'
-import { ChevronDown, KeyRound, LogOut, User, X } from 'lucide-react'
+import { ChevronDown, KeyRound, LogOut, User, X, CalendarDays } from 'lucide-react'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 
 import {
@@ -34,8 +34,9 @@ import {
 
 // ---- data fetch ----
 async function fetchSchedule(): Promise<ScheduleData> {
-  // Auto-archive past events before loading (fire-and-forget)
+  // Auto-archive past events + send reminders (fire-and-forget)
   fetch('/api/auto-archive', { method: 'POST' }).catch(() => {})
+  fetch('/api/reminders', { method: 'POST' }).catch(() => {})
   const r = await fetch('/api/schedule?from=2026-06-01&to=2026-09-30')
   if (!r.ok) throw new Error('Failed to load schedule')
   return r.json()
@@ -721,6 +722,16 @@ function InstructorTopBar({ user, onLogout, onChangePassword }: {
                 <KeyRound className="h-3.5 w-3.5" />
                 Change password
               </button>
+              <a
+                href={`/api/ical?token=${user.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center gap-2"
+                onClick={() => setMenuOpen(false)}
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                Subscribe to calendar
+              </a>
               <button
                 onClick={() => { setMenuOpen(false); onLogout() }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-muted text-rose-300 flex items-center gap-2"

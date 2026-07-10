@@ -19,7 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }),
   )
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={true} disableTransitionOnChange>
       <QueryClientProvider client={client}>
         {children}
         <SonnerToaster position="top-right" richColors closeButton />

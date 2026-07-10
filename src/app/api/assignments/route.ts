@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from "@/lib/auth-helpers"
 import { db } from '@/lib/db'
+import { notifyAssignmentCreated, notifyAssignmentRemoved } from '@/lib/email'
 import { getAuthUser } from '../auth/me/route'
 
 // GET /api/assignments?eventId=...&profileId=...&date=YYYY-MM-DD
@@ -66,6 +67,12 @@ export async function POST(req: NextRequest) {
   })
 
   const result = await db.execute({ sql: 'SELECT * FROM Assignment WHERE id = ?', args: [id] })
+
+  // Send email notification (fire-and-forget)
+  const eventResult = await db.execute({ sql: 'SELECT name FROM Event WHERE id = ?', args: [eventId] })
+  const eventName = eventResult.rows.length > 0 ? (eventResult.rows[0] as any).name : 'Unknown event'
+  notifyAssignmentCreated(profileId, eventName, date, shirtColor ?? null).catch(() => {})
+
   return NextResponse.json(result.rows[0], { status: 201 })
 }
 
@@ -99,6 +106,20 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
+  // Get assignment info before deleting (for email notification)
+  const existing = await db.execute({
+    sql: `SELECT a.profileId, a.assignedDate, e.name as eventName FROM Assignment a JOIN Event e ON a.eventId = e.id WHERE a.id = ?`,
+    args: [id],
+  })
+
   await db.execute({ sql: 'DELETE FROM Assignment WHERE id = ?', args: [id] })
+
+  // Send email notification (fire-and-forget)
+  if (existing.rows.length > 0) {
+    const a = existing.rows[0] as any
+    notifyAssignmentRemoved(a.profileId, a.eventName, String(a.assignedDate).slice(0, 10)).catch(() => {})
+  }
+
   return NextResponse.json({ ok: true })
 }

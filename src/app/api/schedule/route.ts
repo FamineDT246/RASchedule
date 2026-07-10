@@ -101,6 +101,8 @@ export async function GET(req: NextRequest) {
       endDate: e.endDate?.slice(0, 10),
       specificDatesList: parseList(e.specificDates),
       requiredSkills: eventSkills[e.id] ?? [],
+      setupDate: e.setupDate ? String(e.setupDate).slice(0, 10) : null,
+      setupTime: e.setupTime ?? null,
       optIns: optInsByEvent[e.id] ?? { interested: [], available: [], unavailable: [] },
     })),
     assignments: assignmentResult.rows.map((a: any) => ({
