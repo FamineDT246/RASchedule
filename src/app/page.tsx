@@ -561,38 +561,6 @@ export default function Home() {
                 tapAssignMode={isMobile}
                 hasSelectedProfile={!!tapSelectedProfileId}
               />
-              <AnimatePresence>
-                {selectedEvent && (
-                  <motion.div
-                    key="drawer"
-                    initial={{ x: 400, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: 400, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-                    className="absolute inset-y-0 right-0"
-                  >
-                    <EventDetailDrawer
-                      event={selectedEvent}
-                      date={selected?.date ?? null}
-                      assignments={selectedAssignments}
-                      profiles={data.profiles}
-                      onClose={() => setSelected(null)}
-                      onRemove={(id) => removeMutation.mutate(id)}
-                      onUpdateAssignment={(id, patch) => patchAssignmentMutation.mutate({ id, patch })}
-                      onBulkShirtColor={(eventId, date, shirtColor) => {
-                        // Update all assignments for this event+date
-                        const dayAssignments = data.assignments.filter(
-                          a => a.eventId === eventId && a.date === date && !a.isAlternative
-                        )
-                        for (const a of dayAssignments) {
-                          patchAssignmentMutation.mutate({ id: a.id, patch: { shirtColor } })
-                        }
-                        toast.success(`Set all shirts to ${shirtColor}`)
-                      }}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
 
               {/* Mobile: floating selected-instructor bar */}
               {isMobile && tapSelectedProfileId && (
@@ -633,6 +601,41 @@ export default function Home() {
           {tab === 'conflicts' && <ConflictSummaryTab onJumpToEvent={handleJumpToEvent} />}
           {tab === 'workload' && <WorkloadTab />}
           {tab === 'invites' && <InvitesTab />}
+
+          {/* Event detail drawer — shared by Scheduler + Calendar tabs */}
+          {(tab === 'scheduler' || tab === 'calendar') && (
+            <AnimatePresence>
+              {selectedEvent && (
+                <motion.div
+                  key="drawer"
+                  initial={{ x: 400, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: 400, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+                  className="absolute inset-y-0 right-0"
+                >
+                  <EventDetailDrawer
+                    event={selectedEvent}
+                    date={selected?.date ?? null}
+                    assignments={selectedAssignments}
+                    profiles={data.profiles}
+                    onClose={() => setSelected(null)}
+                    onRemove={(id) => removeMutation.mutate(id)}
+                    onUpdateAssignment={(id, patch) => patchAssignmentMutation.mutate({ id, patch })}
+                    onBulkShirtColor={(eventId, date, shirtColor) => {
+                      const dayAssignments = data.assignments.filter(
+                        a => a.eventId === eventId && a.date === date && !a.isAlternative
+                      )
+                      for (const a of dayAssignments) {
+                        patchAssignmentMutation.mutate({ id: a.id, patch: { shirtColor } })
+                      }
+                      toast.success(`Set all shirts to ${shirtColor}`)
+                    }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          )}
         </div>
       </div>
 
