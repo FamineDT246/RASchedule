@@ -1,271 +1,409 @@
 # API Reference
 
-All endpoints are under `/api/`. Authentication uses an httpOnly cookie named `ra-user-id`.
-
-**Auth required** = any authenticated user (admin or instructor)
-**Admin only** = requires `role: 'admin'`
-
----
+All routes are under `/api`. Request bodies are JSON. Responses are JSON. All mutations require authentication via the `ra-session` cookie.
 
 ## Authentication
 
-### POST `/api/auth/me`
-Login with email + password. Sets `ra-user-id` cookie.
+| Header / Cookie | Required | Description |
+|---|---|---|
+| `Cookie: ra-session=<userId>.<hmac>` | Yes (for protected routes) | Set by `/api/auth/me` or `/api/auth/claim` |
 
-| | |
-|---|---|
-| Auth | None |
-| Body | `{ email: string, password: string }` |
-| Success | `200 { user: { id, name, email, role, profileId, profile } }` |
-| Error | `401 { error: "Invalid email or password" }` |
+### Auth helper responses
+- `401 Unauthorized` — no session, or user not found
+- `403 Forbidden` — authenticated but not admin (admin routes only)
 
-### GET `/api/auth/me`
-Returns the currently logged-in user.
+---
 
-| | |
-|---|---|
-| Auth | None |
-| Success | `200 { user: { ... } }` or `200 { user: null }` |
+## Auth
 
-### POST `/api/auth/claim`
-Claim an invite token. Sets `ra-user-id` cookie.
+### `POST /api/auth/me`
+Login or refresh the current session.
 
-| | |
-|---|---|
-| Auth | None |
-| Body | `{ token: string, email: string, password: string, name?: string }` |
-| Success | `200 { user: { id, name, email, role, profileId } }` |
-| Error | `400/404/410/409 { error: string }` |
+**Request body**
+```json
+{ "email": "user@example.com", "password": "secret123" }
+```
+**200 Response**
+```json
+{
+  "user": {
+    "id": "uuid",
+    "name": "Jamie Smith",
+    "email": "user@example.com",
+    "role": "admin",
+    "profileId": "uuid" | null,
+    "profile": { "id": "uuid", "name": "...", "roleTier": "lead", "role": "...", "skills": "...", "unavailable": "..." } | null
+  }
+}
+```
+**401 Response** — `{ "error": "Invalid email or password" }`
 
-### POST `/api/auth/logout`
-Clears the auth cookie.
+Sets `ra-session` cookie (httpOnly, 30-day expiry).
 
-| | |
-|---|---|
-| Auth | None |
-| Success | `200 { ok: true }` |
+---
 
-### POST `/api/auth/change-password`
-Change the current user's password.
+### `GET /api/auth/me`
+Return the currently authenticated user. Useful for refreshing on page load.
 
-| | |
-|---|---|
-| Auth | Required |
-| Body | `{ currentPassword: string, newPassword: string }` |
-| Success | `200 { ok: true }` |
-| Error | `400/401 { error: string }` |
+**200 Response** — same shape as the POST response, or `{ "user": null }` if not authenticated.
+
+---
+
+### `POST /api/auth/claim`
+Claim an invite. Two-step flow with email verification.
+
+**Step 1 — request verification code**
+```json
+{ "token": "<inviteToken>", "name": "Jamie Smith", "email": "jamie@example.com", "password": "secret123" }
+```
+**200 Response** — `{ "step": "verify", "message": "Verification code sent to your email." }`
+
+**Step 2 — verify code and claim**
+```json
+{ "token": "<inviteToken>", "name": "Jamie Smith", "email": "jamie@example.com", "password": "secret123", "verifyCode": "123456" }
+```
+**200 Response** — `{ "user": { ... } }` (same shape as login) and sets the session cookie.
+
+**Error responses**
+- `400` — missing token, email, or password too short (<6 chars)
+- `404` — invalid invite token
+- `409` — email already in use
+- `410` — invite link expired or verification code expired
+- `401` — incorrect verification code
+
+> **Note:** If `RESEND_API_KEY` is not set, the server skips email verification and claims the account immediately (dev mode).
+
+---
+
+### `POST /api/auth/logout`
+Clear the session cookie. No request body.
+
+**200 Response** — `{ "ok": true }`
+
+---
+
+### `POST /api/auth/change-password`
+Change the current user's password. Requires authentication.
+
+**Request body**
+```json
+{ "currentPassword": "old", "newPassword": "newpass123" }
+```
+**200 Response** — `{ "ok": true }`
+**401 Response** — `{ "error": "Current password is incorrect" }`
 
 ---
 
 ## Schedule
 
-### GET `/api/schedule?from=YYYY-MM-DD&to=YYYY-MM-DD&includeDrafts=0`
-Returns all profiles, events (non-Draft by default), assignments, and opt-ins in the date range.
+### `GET /api/schedule?from=YYYY-MM-DD&to=YYYY-MM-DD`
+Fetch all profiles, events, and assignments in the date range. This is the primary data fetch for the admin scheduler.
 
-| | |
-|---|---|
-| Auth | None |
-| Query | `from`, `to` (ISO dates), `includeDrafts` (0 or 1) |
-| Success | `200 { profiles: [], events: [], assignments: [] }` |
+**Query params**
+- `from` (optional, default `2026-06-01`) — ISO date
+- `to` (optional, default `2026-09-30`) — ISO date
+- `includeDrafts=1` (optional) — include Draft events (admin only)
 
----
+**200 Response**
+```json
+{
+  "profiles": [ ProfileView ],
+  "events":    [ EventView ],
+  "assignments": [ AssignmentView ]
+}
+```
 
-## Events
+See `src/lib/scheduler-types.ts` for the full type definitions.
 
-### GET `/api/events`
-Returns all events with assignment counts and opt-in counts.
-
-| | |
-|---|---|
-| Auth | None |
-| Success | `200 [ { ...event, requiredSkills: [], _assignmentCount, _optInCount } ]` |
-
-### POST `/api/events`
-Create a new event.
-
-| | |
-|---|---|
-| Auth | Admin only |
-| Body | `{ name, host, hostColor, location, description, startDate, endDate, startTime, endTime, status, specificDates, ageRange, participantCount, requiredInstructors, notes, skills }` |
-| Success | `201 { ...event }` |
-
-### PUT `/api/events?id=...`
-Update an event.
-
-| | |
-|---|---|
-| Auth | Admin only |
-| Body | Same as POST (partial) |
-| Success | `200 { ...event }` |
-
-### DELETE `/api/events?id=...`
-Delete an event (cascades to EventSkill, Assignment, OptIn).
-
-| | |
-|---|---|
-| Auth | Admin only |
-| Success | `200 { ok: true }` |
-
----
-
-## Profiles (Staff)
-
-### GET `/api/profiles`
-Returns all staff profiles.
-
-| | |
-|---|---|
-| Auth | None |
-| Success | `200 [ { ...profile, skillsList: [], unavailableList: [] } ]` |
-
-### GET `/api/profiles/me`
-Returns the current user's linked profile.
-
-| | |
-|---|---|
-| Auth | Required |
-| Success | `200 { ...profile, skillsList: [], unavailableList: [] }` |
-
-### POST `/api/profiles`
-Create a staff profile.
-
-| | |
-|---|---|
-| Auth | Admin only |
-| Body | `{ name, role, roleTier, skills, available, unavailable, contractSigned, notes, sex }` |
-| Success | `201 { ...profile }` |
-
-### PUT `/api/profiles?id=...`
-Update a staff profile.
-
-| | |
-|---|---|
-| Auth | Admin only |
-| Body | Same as POST (partial) |
-| Success | `200 { ...profile }` |
-
-### DELETE `/api/profiles?id=...`
-Delete a staff profile (cascades to Assignment, User).
-
-| | |
-|---|---|
-| Auth | Admin only |
-| Success | `200 { ok: true }` |
+**Filtering rules**
+- Events: excludes `Draft` by default; includes `Confirmed`, `Tentative`, `Cancelled`, `Archived`
+- Assignments: all assignments with `assignedDate` between `from` and `to`
+- Profiles: all profiles (admin sees everyone; instructors should use `/api/profiles/me`)
 
 ---
 
 ## Assignments
 
-### GET `/api/assignments?eventId=...&profileId=...&date=YYYY-MM-DD`
-Returns assignments, optionally filtered.
+### `GET /api/assignments?eventId=<id>&date=YYYY-MM-DD`
+Fetch assignments for a specific event+date. Used by the event detail drawer.
 
-| | |
-|---|---|
-| Auth | None |
-| Success | `200 [ { ...assignment } ]` |
+**200 Response** — `{ "assignments": [ AssignmentView ] }`
 
-### POST `/api/assignments`
-Create a single-day assignment.
+---
 
-| | |
-|---|---|
-| Auth | Admin only |
-| Body | `{ eventId, profileId, date, isAlternative?, shirtColor? }` |
-| Success | `201 { ...assignment }` |
-| Error | `400 { error: "Cannot assign to a past date..." }` |
+### `POST /api/assignments`
+Create a new assignment. **Admin only.** Runs server-side conflict validation.
 
-### POST `/api/assignments/bulk`
-Assign an instructor to ALL days of an event.
+**Request body**
+```json
+{
+  "eventId": "uuid",
+  "profileId": "uuid",
+  "date": "2026-07-15",
+  "isAlternative": false,
+  "shirtColor": "Orange"
+}
+```
+**200 Response** — `{ "assignment": AssignmentView }`
+**409 Response** — `{ "error": "Conflict: ...", "conflicts": [...] }`
 
-| | |
-|---|---|
-| Auth | Admin only |
-| Body | `{ eventId, profileId }` |
-| Success | `200 { created, existing, conflicts, skippedPast }` |
+Triggers `notifyAssignmentCreated` email if email is configured.
 
-### PATCH `/api/assignments?id=...`
-Update an assignment (shirt color, alternative flag, status).
+---
 
-| | |
-|---|---|
-| Auth | Admin only |
-| Body | `{ isAlternative?, shirtColor?, status? }` |
-| Success | `200 { ...assignment }` |
+### `POST /api/assignments/bulk`
+Create the same assignment across multiple dates. **Admin only.**
 
-### DELETE `/api/assignments?id=...`
-Remove an assignment.
+**Request body**
+```json
+{
+  "eventId": "uuid",
+  "profileId": "uuid",
+  "dates": ["2026-07-06", "2026-07-07", "2026-07-08"],
+  "isAlternative": false
+}
+```
+**200 Response** — `{ "created": 3, "skipped": 0 }`
 
-| | |
-|---|---|
-| Auth | Admin only |
-| Success | `200 { ok: true }` |
+---
+
+### `PATCH /api/assignments`
+Update an existing assignment (e.g. change shirt color, toggle alternative). **Admin only.**
+
+**Request body**
+```json
+{ "id": "uuid", "patch": { "shirtColor": "Blue", "isAlternative": false } }
+```
+**200 Response** — `{ "assignment": AssignmentView }`
+
+---
+
+### `DELETE /api/assignments?id=<id>`
+Remove an assignment. **Admin only.**
+
+**200 Response** — `{ "ok": true }`
+
+Triggers `notifyAssignmentRemoved` email if email is configured.
+
+---
+
+## Events
+
+### `GET /api/events`
+List all events. **Admin only.**
+
+**200 Response** — `{ "events": [ EventView ] }`
+
+---
+
+### `POST /api/events`
+Create a new event. **Admin only.**
+
+**Request body**
+```json
+{
+  "code": "WSB-1",
+  "name": "Aerial Robotics",
+  "host": "TVETC / WSB",
+  "hostColor": "teal",
+  "location": "SJPI",
+  "description": "...",
+  "startDate": "2026-07-06",
+  "endDate": "2026-07-10",
+  "startTime": "09:00",
+  "endTime": "15:00",
+  "status": "Confirmed",
+  "specificDates": null,
+  "ageRange": "10-16",
+  "participantCount": 25,
+  "requiredInstructors": 5,
+  "setupDate": null,
+  "setupTime": null,
+  "notes": "",
+  "requiredSkills": ["Aerial Robotics", "Python"]
+}
+```
+**200 Response** — `{ "event": EventView }`
+
+---
+
+### `PUT /api/events?id=<id>`
+Update an event. **Admin only.** Accepts the same body as POST (all fields optional).
+
+**200 Response** — `{ "event": EventView }`
+
+---
+
+### `DELETE /api/events?id=<id>`
+Delete an event. **Admin only.** Also deletes all child assignments and EventSkill rows.
+
+**200 Response** — `{ "ok": true }`
+
+---
+
+## Profiles
+
+### `GET /api/profiles`
+List all staff profiles. **Admin only.**
+
+**200 Response** — `{ "profiles": [ ProfileView ] }`
+
+---
+
+### `GET /api/profiles/me`
+Get the current instructor's own profile. Used by the instructor view.
+
+**200 Response** — `ProfileView` or `{ "error": "No profile linked" }` (404)
+
+---
+
+### `POST /api/profiles`
+Create a new staff profile. **Admin only.**
+
+**Request body**
+```json
+{
+  "name": "Jamie Smith",
+  "sex": "F",
+  "role": "Lead Instructor",
+  "roleTier": "lead",
+  "skills": "Robotics,Python",
+  "available": null,
+  "unavailable": null,
+  "contractSigned": true,
+  "notes": ""
+}
+```
+**200 Response** — `{ "profile": ProfileView }`
+
+---
+
+### `PUT /api/profiles?id=<id>`
+Update a profile. **Admin only** (or the linked instructor updating their own unavailable dates).
+
+**Request body** — partial Profile fields. Common use case:
+```json
+{ "unavailable": "2026-07-15,2026-07-22" }
+```
+**200 Response** — `{ "profile": ProfileView }`
+
+---
+
+### `DELETE /api/profiles?id=<id>`
+Delete a profile. **Admin only.**
+
+**200 Response** — `{ "ok": true }`
+
+---
+
+## Opt-Ins
+
+### `GET /api/opt-ins`
+List the current instructor's opt-ins. **Authenticated.**
+
+**200 Response** — `[ OptInView ]`
+
+---
+
+### `POST /api/opt-ins`
+Create or update an opt-in. **Authenticated.**
+
+**Request body**
+```json
+{ "eventId": "uuid", "status": "interested", "note": "I love drones!" }
+```
+`status` must be one of: `interested`, `available`, `unavailable`.
+
+**200 Response** — `{ "optIn": OptInView }`
+
+Triggers `notifyOptInReceived` email to the admin if email is configured.
 
 ---
 
 ## Invites
 
-### GET `/api/invites`
-Returns all invite tokens.
+### `GET /api/invites`
+List all invites. **Admin only.**
 
-| | |
-|---|---|
-| Auth | Admin only |
-| Success | `200 [ { id, name, email, role, profileId, profileName, inviteToken, claimedAt, inviteExpiresAt, createdAt } ]` |
-
-### POST `/api/invites`
-Create an invite for an existing staff member.
-
-| | |
-|---|---|
-| Auth | Admin only |
-| Body | `{ name: string, profileId?: string }` |
-| Success | `201 { id, name, inviteToken, profileId }` |
-
-### DELETE `/api/invites?id=...`
-Revoke an invite (deletes the user account).
-
-| | |
-|---|---|
-| Auth | Admin only |
-| Success | `200 { ok: true }` |
+**200 Response** — `{ "invites": [ InviteView ] }`
 
 ---
 
-## Opt-ins
+### `POST /api/invites`
+Create a new invite. **Admin only.**
 
-### GET `/api/opt-ins?eventId=...`
-Returns opt-ins. Instructors only see their own. Admins see all.
-
-| | |
-|---|---|
-| Auth | Required |
-| Success | `200 [ { id, userId, userName, eventId, eventName, status, note } ]` |
-
-### POST `/api/opt-ins`
-Upsert an opt-in for the current user.
-
-| | |
-|---|---|
-| Auth | Instructor only |
-| Body | `{ eventId: string, status: 'interested' | 'available' | 'unavailable', note?: string }` |
-| Success | `201 { ...optIn }` |
+**Request body**
+```json
+{ "name": "Jamie Smith", "role": "instructor", "profileId": "uuid" }
+```
+**200 Response** — `{ "invite": InviteView }` (includes `inviteToken` and a ready-to-share URL)
 
 ---
 
-## Utility
+### `DELETE /api/invites?id=<id>`
+Revoke an invite. **Admin only.** Only works on unclaimed invites.
 
-### POST `/api/auto-archive`
-Automatically archives events whose end date has passed. Called automatically when the schedule loads.
+**200 Response** — `{ "ok": true }`
 
-| | |
-|---|---|
-| Auth | None |
-| Success | `200 { archived: number }` |
+---
 
-### POST `/api/seed`
-**DISABLED in production.** Returns 403.
+## Notifications
 
-| | |
-|---|---|
-| Auth | None |
-| Response | `403 { error: "Seed endpoint is disabled in production" }` |
+### `GET /api/notifications`
+List recent email notifications sent. **Admin only.** Useful for auditing.
+
+**200 Response** — `{ "notifications": [ { id, to, subject, sentAt, status } ] }`
+
+---
+
+## iCal
+
+### `GET /api/ical?token=<userId>`
+Return an iCal calendar feed of the instructor's assignments. No session cookie required — the `token` (userId) acts as the auth.
+
+**200 Response** — `Content-Type: text/calendar`
+```
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//RA Syncbot//Instructor Calendar//EN
+BEGIN:VEVENT
+UID:assignment-uuid@ra-syncbot.com
+DTSTART:20260706T090000Z
+DTEND:20260706T150000Z
+SUMMARY:WSB — Aerial Robotics
+LOCATION:SJPI
+END:VEVENT
+...
+END:VCALENDAR
+```
+
+Instructors subscribe via their account menu → "Subscribe to calendar".
+
+---
+
+## Cron endpoints
+
+These are intended to be called by Vercel Cron (or any external scheduler).
+
+### `POST /api/reminders`
+Send reminder emails for assignments happening tomorrow. Idempotent — safe to call multiple times per day.
+
+**200 Response** — `{ "sent": N, "skipped": M }`
+
+### `POST /api/auto-archive`
+Move all events whose `endDate` is in the past to `Archived` status.
+
+**200 Response** — `{ "archived": N }`
+
+---
+
+## Seed (disabled in production)
+
+### `POST /api/seed`
+Wipe and reseed the database. **Returns 403 in production.** In development, requires the `SESSION_PASSWORD` env var to match the request body.
+
+**Request body** — `{ "confirm": "WIPE" }`
+
+**200 Response (dev only)** — `{ "ok": true, "seeded": { "profiles": 20, "events": 17, "assignments": 33 } }`
+
+> ⚠️ This endpoint is intentionally dangerous. Never enable it in production.

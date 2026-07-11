@@ -1,197 +1,191 @@
-# Contributing Guide
+# Contributing
 
-This guide is for developers maintaining or extending the RA Syncbot Scheduler.
+Thanks for working on RA Syncbot. This document covers local setup, code style, and the PR process.
 
 ---
 
-## Development Setup
+## Local Development
 
 ### Prerequisites
+- [Bun](https://bun.sh) 1.0+ (preferred) or Node.js 18+
+- A Turso account (free) — or use the local SQLite fallback
 
-- **Node.js 18+** or **Bun** (recommended — faster installs + runs)
-- A Turso account (free at [turso.tech](https://turso.tech))
-- Git
-
-### First-time Setup
+### First-time setup
 
 ```bash
-# Clone the repo
+# 1. Clone
 git clone https://github.com/FamineDT246/RASchedule.git
 cd RASchedule
 
-# Install dependencies
+# 2. Install deps
 bun install
 
-# Set up environment variables
+# 3. Configure env
 cp .env.example .env
-# Edit .env with your Turso URL + auth token
+# Edit .env — at minimum set SESSION_PASSWORD (32+ chars)
+#   openssl rand -hex 32
 
-# Create the database schema (run the SQL from ARCHITECTURE.md in Turso's web inspector,
-# or use the seed script which creates tables if they don't exist)
+# 4. (Optional) Seed the DB with demo data
 bun run seed
 
-# Start the dev server
+# 5. Start dev server
 bun run dev
 ```
 
-Open http://localhost:3000
+Open [http://localhost:3000](http://localhost:3000).
 
-**Default login:** `jelani@robotadventure.local` / `changeme`
+**Without Turso configured**, the app falls back to `file:./db/custom.db` (local SQLite). The seed script creates this file automatically.
 
 ---
 
-## Coding Standards
+## Project Layout
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full breakdown. Key directories:
+
+```
+src/
+├── app/
+│   ├── api/             # Route handlers — one folder per resource
+│   ├── page.tsx         # Main app shell (auth gate, tabs, DnD)
+│   └── providers.tsx    # TanStack Query + theme + Sonner
+├── components/
+│   ├── scheduler/       # App-specific components
+│   └── ui/              # Pruned shadcn/ui (10 components only)
+├── hooks/
+│   └── use-is-mobile.ts
+└── lib/
+    ├── auth-helpers.ts  # requireAdmin / getAuthUser
+    ├── conflicts.ts     # Pure conflict-detection functions
+    ├── db.ts            # Turso client
+    ├── email.ts         # Resend wrapper
+    ├── scheduler-types.ts  # Shared types + date helpers
+    └── session.ts       # HMAC cookies (server-only)
+```
+
+---
+
+## Code Style
 
 ### TypeScript
-
-- **Strict mode** is on — no `any` unless absolutely necessary (and add a comment explaining why)
-- All function parameters and return types should be typed
-- Use `type` for object shapes, `interface` for things that might be extended
-- Prefer `unknown` over `any` for catch blocks
+- **Strict mode** is on — no implicit `any`, no unchecked index access.
+- All shared types live in `src/lib/scheduler-types.ts`. Don't duplicate types inline.
+- Use `type` for unions and intersections; use `interface` only when you need declaration merging.
+- Prefer `unknown` over `any` for unknown API payloads; narrow with type guards.
 
 ### React
+- **Function components only.** No class components.
+- **Hooks rule:** never call hooks conditionally. The scheduler sensors are always created (even on mobile) — we just set an impossible activation distance to disable them.
+- **No `useSyncExternalStore`** — it caused a TDZ crash in this project. Use `useState + useEffect` for client-only state.
+- **TanStack Query** for all server state. Don't use `useEffect` for data fetching.
+- Keep components under ~400 lines. Split larger components into sub-components in the same file.
 
-- Use **functional components** only (no class components)
-- Use **hooks** for state management (`useState`, `useCallback`, `useMemo`)
-- Extract reusable logic into custom hooks in `src/hooks/`
-- Use **TanStack Query** for all server state (no manual `useEffect` fetches)
-- Use **sonner** toasts for user feedback (not `alert()` or `confirm()`)
+### Styling
+- **Tailwind CSS 4** — utility classes inline. No CSS modules.
+- Use the `cn()` helper from `src/lib/utils.ts` for conditional classes.
+- **WCAG 2.1 AA** is enforced:
+  - 16px base text, 12px absolute floor (enforced in `globals.css`)
+  - 44px minimum touch targets on mobile (enforced in `globals.css` `@media (pointer: coarse)`)
+  - All interactive elements must have an `aria-label` if their text content is ambiguous
+- Dark mode is via `next-themes` — use Tailwind's `dark:` variant, never hardcode colors.
 
-### File Naming
+### API routes
+- Every route starts with `getAuthUser(req)` or `requireAdmin(req)`.
+- Validate the request body before touching the DB. Return `400` with a clear error message.
+- Run server-side conflict checks (don't trust the client) for assignment mutations.
+- Return `200` with the updated entity, not a generic `{ ok: true }`. The client uses the response to update the cache.
+- Use `crypto.randomUUID()` for IDs — never `Date.now()` or counter-based IDs.
 
-- Components: `PascalCase.tsx` (e.g., `EventDetailDrawer.tsx`)
-- Utilities: `kebab-case.ts` (e.g., `auth-helpers.ts`)
-- API routes: `route.ts` inside a folder named after the endpoint
+### SQL
+- Raw SQL via `db.execute({ sql, args })`. **Always use `?` placeholders** — never string-interpolate user input.
+- Column names are camelCase (matches the JS object shape). Table names are PascalCase.
+- For complex queries, write the SQL as a template literal with the placeholders on separate lines for readability.
 
-### CSS / Styling
-
-- Use **Tailwind CSS 4** utility classes — no inline styles unless dynamic values
-- Use **shadcn/ui** components from `src/components/ui/` — don't reinvent buttons, dialogs, etc.
-- **No indigo or blue** as primary colors (per project rules)
-- Always use `cn()` from `@/lib/utils` for conditional classes
-- Responsive: mobile-first (`sm:`, `md:`, `lg:` prefixes)
-- Minimum touch target: 32px (36px preferred for primary actions)
-
-### Database
-
-- Use **parameterized queries** always — never string-interpolate SQL
-- Pattern: `db.execute({ sql: 'SELECT * FROM X WHERE id = ?', args: [id] })`
-- Date columns use ISO 8601 strings (`YYYY-MM-DDTHH:MM:SS.SSSZ`)
-- All tables have `createdAt` and `updatedAt` DATETIME columns
-
-### API Routes
-
-- Every mutating endpoint (POST/PUT/PATCH/DELETE) must call `requireAdmin(req)` first
-- Return proper HTTP status codes (200, 201, 400, 401, 403, 404, 500)
-- Return `{ error: string }` for errors, not bare strings
-- Use `NextRequest` and `NextResponse` from `next/server`
+### File naming
+- Components: `PascalCase.tsx` (e.g. `EventDetailDrawer.tsx`)
+- Hooks: `kebab-case.ts` (e.g. `use-is-mobile.ts`)
+- Lib files: `kebab-case.ts` (e.g. `auth-helpers.ts`)
+- API routes: `route.ts` inside a folder named after the resource
 
 ---
 
-## Common Tasks
+## Commit Conventions
 
-### Adding a new staff member
-
-1. Log in as admin
-2. Go to **Team** tab → switch to **Edit** mode → click **Add staff**
-3. Fill in name, role, role tier, skills, availability
-4. Save
-
-### Creating an invite for a staff member
-
-1. Go to **Invites** tab → click **New invite**
-2. Select the staff member from the dropdown
-3. Copy the invite link and share via WhatsApp/email
-4. The instructor opens the link, sets their email + password, and claims their account
-
-### Adding a new event
-
-1. Go to **Events** tab → click **New event**
-2. Fill in event details (name, host, dates, times, required instructors)
-3. For recurring events: check **Recurring event**, select weekdays, set number of weeks
-4. Set status to **Draft** if dates aren't confirmed yet, **Confirmed** if they are
-5. Save
-
-### Assigning instructors
-
-1. Go to **Scheduler** tab
-2. **Desktop:** Drag an instructor from the left roster onto an event card
-3. **Mobile:** Tap an instructor to select them, then tap an event card
-4. For multi-day events: drag onto the **"↧ all days"** button to assign to all days at once
-5. Conflict warnings (double-booking, unavailable) will block or warn
-
-### Running the seed script
-
-```bash
-bun run seed
-```
-
-This wipes all data and inserts the initial dataset. **Never run this in production** — it's for local development only. The `/api/seed` endpoint is disabled in production.
-
----
-
-## Debugging
-
-### Checking the database
-
-Use Turso's web inspector at [turso.tech](https://turso.tech) → your database → Inspector. You can run SQL queries directly.
-
-Alternatively, use the CLI:
-```bash
-turso db shell robot-adventure-db
-```
-
-### Checking Vercel logs
-
-1. Go to [vercel.com](https://vercel.com) → your project
-2. Click **Functions** → **Logs**
-3. Look for `console.error` outputs
-
-### Common issues
-
-| Issue | Fix |
-|-------|-----|
-| "URL_INVALID" error | Check that `TURSO_URL` and `TURSO_AUTH_TOKEN` are set in Vercel env vars |
-| 404 on production | Check that `vercel.json` has `"framework": "nextjs"` |
-| Login fails | Check that the User table has a row with the correct email + passwordHash |
-| Build fails | Run `bun run lint` locally to catch issues before pushing |
-| Hydration mismatch | Don't read `window` or `document` during render — use `useSyncExternalStore` or `useEffect` |
-
----
-
-## Git Workflow
-
-1. Create a branch: `git checkout -b feature/your-feature-name`
-2. Make changes, commit with clear messages
-3. Push: `git push origin feature/your-feature-name`
-4. Vercel auto-deploys on push to `main`
-5. For production: merge to `main` via PR or direct push
-
-### Commit Message Format
+Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
-Brief description (50 chars max)
+<type>(<scope>): <subject>
 
-Optional longer description explaining what changed and why.
+<body — optional>
 ```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
 
 Examples:
 ```
-Add instructor workload dashboard
-Fix past-date assignment blocking on bulk assign
-Replace Prisma with @libsql/client for Turso compatibility
+feat(scheduler): add multi-day drop handle
+fix(auth): prevent session cookie from leaking to client bundle
+docs(api): document /api/opt-ins response shape
+chore(deps): remove unused Radix packages
 ```
 
 ---
 
-## Security Checklist
+## Pull Request Process
 
-Before deploying any changes:
+1. **Branch** from `main`: `feat/<short-description>` or `fix/<short-description>`.
+2. **Commit** logically — one feature/fix per commit. Squash WIP commits before opening the PR.
+3. **Test locally:**
+   ```bash
+   bun run lint   # must pass with no errors
+   bun run build  # must succeed
+   ```
+4. **Open the PR** against `main`. Describe:
+   - What changed and why
+   - How to test it
+   - Screenshots (if UI changes)
+5. **Review** — address feedback by pushing new commits (don't force-push during review).
+6. **Squash-merge** on approval.
 
-- [ ] No secrets in code or git (use env vars)
-- [ ] All new API mutations have `requireAdmin(req)` check
-- [ ] No `confirm()` or `alert()` calls (use sonner toasts)
-- [ ] No `console.log` left in production code (use `console.error` for errors only)
-- [ ] Lint passes: `bun run lint`
-- [ ] Build passes: `bun run build`
-- [ ] Tested on mobile viewport (390px width)
+---
+
+## Testing
+
+There's no automated test suite yet. Manual test checklist before merging:
+
+- [ ] `bun run lint` passes
+- [ ] `bun run build` succeeds
+- [ ] Dev server starts without console errors
+- [ ] Login works (admin + instructor)
+- [ ] Drag-and-drop works on desktop (Chrome + Firefox)
+- [ ] Tap-to-assign works on mobile (iOS Safari + Android Chrome)
+- [ ] Esc closes drawers, modals, and tap selections
+- [ ] Light/dark mode toggle works
+- [ ] No `Cannot access 'g' before initialization` errors in console
+
+---
+
+## Known Pitfalls
+
+### Don't import `session.ts` from client code
+`session.ts` is marked `server-only` and uses `crypto.subtle`. If you accidentally import it from a client component, the build will fail (good) or — worse — leak into the client bundle and cause a TDZ crash at runtime.
+
+### Don't use `useSyncExternalStore`
+This caused a desktop-only crash that took a full session to diagnose. Use `useState + useEffect` instead, even at the cost of an extra render.
+
+### Don't run `bun run seed` against production
+The seed script wipes all data. It's safe for local dev and for the initial Turso setup, but never run it against a DB with real data. The `/api/seed` endpoint is disabled in production (returns 403) as a safety net.
+
+### Don't add shadcn/ui components back without checking usage
+The `src/components/ui/` directory was pruned from 40+ components down to 10. Each remaining component is actually used. If you need a new component, add it manually (don't run `npx shadcn add` — it pulls in deps we removed).
+
+### Don't change the auth cookie scheme without testing
+The HMAC-signed cookie approach replaced iron-session (which had Vercel build issues) and a Node `crypto` version (which caused the desktop crash). Any change to `session.ts` needs testing on both desktop and mobile, in both light and dark mode.
+
+---
+
+## Getting Help
+
+- Read [ARCHITECTURE.md](./ARCHITECTURE.md) for system design questions
+- Read [API.md](./API.md) for endpoint specifics
+- Read [DEPLOYMENT.md](./DEPLOYMENT.md) for infra setup
+- Check `git log` for context on past decisions — commit messages explain why things were done

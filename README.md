@@ -1,223 +1,152 @@
-# RA Syncbot — Camp Scheduler
+# RA Syncbot
 
-A production-grade, drag-and-drop instructor scheduling application for RA Syncbot (Barbados).
+**Drag-and-drop camp & workshop instructor scheduling for RA Syncbot Ltd (Barbados).**
 
-Built with **Next.js 16**, **TypeScript**, **Tailwind CSS 4**, **shadcn/ui**, and **Turso (libSQL)**.
+RA Syncbot replaces a chaotic spreadsheet-based system for managing ~20 instructors across 15+ summer camps and workshops. Admins drag instructors onto events; instructors log in to view their schedule, opt in to events, and sync their personal calendar.
 
----
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Database Schema](#database-schema)
-- [Environment Variables](#environment-variables)
-- [Deployment](#deployment)
-- [Default Login](#default-login)
-- [Documentation](#documentation)
-- [License](#license)
-
----
-
-## Quick Start
-
-```bash
-# 1. Install dependencies
-bun install
-
-# 2. Set up environment variables
-cp .env.example .env
-# Edit .env with your Turso credentials (see below)
-
-# 3. Create the database schema
-bun run scripts:db-init
-
-# 4. Seed with initial data
-bun run seed
-
-# 5. Start the dev server
-bun run dev
-```
-
-Open http://localhost:3000
+- **Live site:** [ra-syncbot.com](https://www.ra-syncbot.com)
+- **Platform:** Vercel + Turso + Resend
+- **Stack:** Next.js 16, TypeScript, Tailwind CSS 4, shadcn/ui (pruned), @dnd-kit, TanStack Query
 
 ---
 
 ## Features
 
-### Admin (Boss)
-- **Scheduler** — Drag-and-drop (desktop) or tap-to-assign (mobile) instructors onto events
-- **Calendar** — Full month grid view of all events with fill counts and color-coded hosts
-- **Events** — CRUD with status workflow (Draft → Tentative → Confirmed → Archived), recurring events, specific dates
-- **Team** — Staff directory + edit mode with full CRUD on instructor profiles
-- **Conflicts** — Auto-detect double-bookings, unavailable violations, fatigue streaks, unfilled slots
-- **Workload** — Dashboard showing assignments per instructor with color-coded workload bars
-- **Invites** — Generate invite links for instructors, share via WhatsApp/email/copy
-- **Export** — CSV (opens in Excel) and PDF (print-optimized layout)
-- **Security** — Password-based login, role-based access control, server-side auth checks
+### Admin
+- **Drag-and-drop scheduler** — drag instructors from the roster rail onto any event/day; supports multi-day "drop on all days" handle.
+- **Mobile tap-to-assign** — same workflow on phones via tap-to-select-then-tap-event.
+- **Week + month calendar views** — week view for editing, month view for overview.
+- **Conflict detection** — double-bookings, fatigue (3+ consecutive days), skill gaps, and unavailable-date violations are flagged in real time.
+- **Event management** — create, edit, delete, and archive events; set required skills, host, location, age range, participant count, setup date/time, and shirt colors.
+- **Team management** — manage instructor profiles, skills, contracts, and notes.
+- **Invites** — generate invite links for new instructors; revoke or resend at any time.
+- **Workload dashboard** — per-instructor assignment counts, day breakdowns, opt-in summary.
+- **Conflict summary tab** — overview of every flagged conflict across all events.
+- **Print & PDF export** — print the current week or export a PDF.
+- **CSV export** — bulk export all assignments.
 
-### Instructors
-- **Schedule view** — Carousel or list of assignments + opt-in events
-- **Month calendar** — Read-only calendar showing all events with ★ on their assignment days
-- **Opt-ins** — Express interest (Interested / Available / Can't make it)
-- **Availability** — Set their own unavailable dates
-- **Account** — Change password, log out
+### Instructor
+- **3-tab view** — My Assignments / Opt In / Calendar.
+- **Opt-in system** — express interest (interested / available / unavailable) on any event.
+- **Availability management** — mark dates you can't work; the admin scheduler respects these.
+- **Calendar sync** — subscribe to a personal iCal feed (`/api/ical?token=<userId>`).
+- **Email notifications** — assignment created/removed, opt-in received, daily reminders for upcoming assignments.
+- **Account claim flow** — invite links require email verification (6-digit code) before account creation.
 
 ### Cross-cutting
-- **Past date protection** — Past assignments are locked (read-only)
-- **Auto-archive** — Events past their end date are automatically archived
-- **PWA** — Installable on mobile/desktop with app icon
-- **Barbados timezone** — All date comparisons use America/Barbados (AST, UTC-4)
-- **Mobile responsive** — Single-day view on mobile, week grid on desktop
-- **Accessibility** — ARIA roles, keyboard nav, skip links, focus management
+- **Light/dark mode** toggle with system preference default.
+- **PWA installable** — add to home screen on iOS/Android.
+- **WCAG 2.1 AA** — 16px base text, 12px floor, 44px touch targets, ARIA roles, full keyboard navigation.
+- **Esc-to-close** — drawers, modals, and tap selections all close on Esc.
+- **Auto-archive** — past events are auto-archived via a cron-style API endpoint.
+- **Past-date protection** — past dates are visually dimmed and drop-disabled at the API level.
+- **Barbados timezone** — all date comparisons use America/Barbados (AST, UTC-4).
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 (App Router) |
+|---|---|
+| Framework | Next.js 16 (App Router, Turbopack) |
 | Language | TypeScript 5 |
-| Styling | Tailwind CSS 4 + shadcn/ui (New York style) |
-| Database | Turso (libSQL/SQLite cloud) |
-| DB Client | @libsql/client (raw SQL, no ORM) |
-| Auth | bcryptjs + httpOnly cookies |
-| Drag & Drop | @dnd-kit/core |
-| State | TanStack Query (server) + React hooks (client) |
-| Animations | Framer Motion |
-| Icons | Lucide React |
-| Hosting | Vercel |
-| Database hosting | Turso (free tier) |
+| Styling | Tailwind CSS 4 + `tw-animate-css` |
+| UI primitives | shadcn/ui (pruned to 10 components) + Radix |
+| Drag-and-drop | `@dnd-kit/core` |
+| Server state | TanStack Query v5 |
+| Auth | bcryptjs + signed HMAC cookies (Web Crypto API) |
+| Database | Turso (libSQL/SQLite cloud) via `@libsql/client` |
+| Email | Resend (via `fetch()`, no SDK) |
+| Hosting | Vercel (free tier) |
+| Calendar sync | iCal feed (`/api/ical`) |
+| PWA | `manifest.json` + icons |
+
+---
+
+## Quick Start
+
+### Prerequisites
+- Node.js 18+ or Bun
+- A Turso database (free tier works)
+- (Optional) A Resend account for email notifications
+
+### Install & run locally
+
+```bash
+# 1. Install dependencies
+bun install
+
+# 2. Copy env template and fill in your values
+cp .env.example .env
+# Edit .env — at minimum set TURSO_URL and TURSO_AUTH_TOKEN
+
+# 3. Run the database seed (creates schema + demo data)
+bun run seed
+
+# 4. Start the dev server
+bun run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) and log in with the admin credentials created by the seed script.
+
+### Default admin (from seed)
+- Email: `robotadventuresltd@gmail.com`
+- Password: `admin123`
+
+> ⚠️ **Change this password immediately** in production via the account menu → Change password.
 
 ---
 
 ## Project Structure
 
 ```
-robot-adventures-scheduler/
+.
 ├── src/
-│   ├── app/                          # Next.js App Router
-│   │   ├── layout.tsx                # Root layout (fonts, providers, metadata, PWA)
-│   │   ├── page.tsx                  # Main page (auth gate, tab nav, all views)
-│   │   ├── providers.tsx             # QueryClient + ThemeProvider + Toaster
-│   │   ├── globals.css               # Tailwind imports + print styles + scrollbars
-│   │   └── api/                      # API routes (see API.md)
-│   │       ├── auth/                 # Login, claim, logout, change-password, me
-│   │       ├── schedule/             # Combined schedule data (events + assignments + opt-ins)
-│   │       ├── events/               # Event CRUD
-│   │       ├── profiles/             # Staff CRUD + /me endpoint
-│   │       ├── assignments/          # Assignment CRUD + /bulk for multi-day
-│   │       ├── invites/              # Invite link generation
-│   │       ├── opt-ins/              # Instructor opt-in management
-│   │       ├── auto-archive/         # Auto-archive past events
-│   │       └── seed/                 # DISABLED in production
+│   ├── app/
+│   │   ├── api/                  # API routes (see API.md)
+│   │   ├── globals.css           # Tailwind + WCAG typography rules
+│   │   ├── layout.tsx            # Root layout, fonts, theme provider
+│   │   ├── page.tsx              # Main app — auth gate, tabs, drag-and-drop
+│   │   └── providers.tsx         # TanStack Query + theme + Sonner toaster
 │   ├── components/
-│   │   ├── scheduler/                # All scheduler-specific components
-│   │   │   ├── StatsBar.tsx          # Top bar with stats + user menu
-│   │   │   ├── RosterRail.tsx        # Left sidebar (instructor list)
-│   │   │   ├── CalendarGrid.tsx      # Week view (desktop) / day view (mobile)
-│   │   │   ├── CalendarView.tsx      # Month grid (Calendar tab)
-│   │   │   ├── DroppableEventCard.tsx # Event card on the scheduler grid
-│   │   │   ├── DraggableInstructor.tsx # Draggable instructor card
-│   │   │   ├── EventDetailDrawer.tsx  # Right-side detail drawer
-│   │   │   ├── EventsManagerTab.tsx   # Events CRUD tab
-│   │   │   ├── TeamTab.tsx            # Staff directory + edit tab
-│   │   │   ├── ConflictSummaryTab.tsx # Conflict detection tab
-│   │   │   ├── WorkloadTab.tsx        # Instructor workload dashboard
-│   │   │   ├── InvitesTab.tsx         # Invite generation tab
-│   │   │   ├── InstructorView.tsx     # Instructor portal (carousels + calendar)
-│   │   │   ├── LoginForm.tsx          # Email + password login
-│   │   │   ├── PrintLayout.tsx        # Print-optimized weekly schedule
-│   │   │   ├── PWAInstallPrompt.tsx   # PWA install banner
-│   │   │   └── Accordion.tsx          # Reusable collapsible component
-│   │   └── ui/                        # shadcn/ui component library
-│   ├── lib/
-│   │   ├── db.ts                      # Database client (Turso/libSQL)
-│   │   ├── auth-helpers.ts            # requireAdmin() / requireAuth() middleware
-│   │   ├── conflicts.ts               # Pure conflict-detection functions
-│   │   ├── scheduler-types.ts         # Shared types, color maps, date helpers
-│   │   └── export-utils.ts            # CSV generation + file download
-│   └── hooks/
-│       └── use-is-mobile.ts           # Viewport detection hook
-├── public/                            # Static assets (PWA icons, manifest)
+│   │   ├── scheduler/            # App-specific components (20 files)
+│   │   └── ui/                   # Pruned shadcn/ui (10 components)
+│   ├── hooks/
+│   │   └── use-is-mobile.ts      # Mobile detection (breakpoint-based)
+│   └── lib/
+│       ├── auth-helpers.ts       # requireAdmin / requireAuth / getAuthUser
+│       ├── conflicts.ts          # Pure conflict-detection functions
+│       ├── db.ts                 # Turso client (auto-fallback to local SQLite)
+│       ├── email.ts              # Resend API wrapper
+│       ├── export-utils.ts       # CSV export helper
+│       ├── scheduler-types.ts    # Shared types + date helpers
+│       ├── session.ts            # HMAC-signed cookies (Web Crypto)
+│       └── utils.ts              # cn() classname merger
+├── public/                       # logo, icons, manifest, robots.txt
 ├── scripts/
-│   └── seed.ts                        # Database seed script
-├── vercel.json                        # Vercel config (framework detection)
-├── next.config.ts                     # Next.js config
-├── tailwind.config.ts                 # Tailwind config
-├── tsconfig.json                      # TypeScript config
-└── .env.example                       # Environment variable template
+│   └── seed.ts                   # Database seed (run with `bun run seed`)
+├── .env.example
+├── next.config.ts
+├── package.json
+├── tailwind.config.ts
+├── tsconfig.json
+└── vercel.json
 ```
-
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for a detailed walkthrough of the codebase.
-
----
-
-## Database Schema
-
-The database uses SQLite (via Turso's libSQL). There are 6 tables:
-
-| Table | Purpose |
-|-------|---------|
-| `Profile` | Staff members (name, role, skills, availability, contract status) |
-| `Event` | Camps/workshops (name, host, dates, times, status, required instructors) |
-| `EventSkill` | Required skills per event (many-to-one) |
-| `Assignment` | Instructor assigned to an event on a specific date (with shirt color, alt flag) |
-| `User` | Login accounts (email, password hash, role: admin/instructor, invite token) |
-| `OptIn` | Instructor opt-in preferences per event (interested/available/unavailable) |
-
-The schema is created by the seed script. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full SQL.
-
----
-
-## Environment Variables
-
-See `.env.example` for a template:
-
-```bash
-# Database (Turso cloud — required for production)
-TURSO_URL=libsql://your-db.turso.io
-TURSO_AUTH_TOKEN=your-auth-token
-
-# Local development fallback (optional — used if TURSO_URL is not set)
-DATABASE_URL=file:./db/custom.db
-```
-
-**Never commit `.env` to git.** It is in `.gitignore`.
-
----
-
-## Deployment
-
-See [TURSO-DEPLOYMENT-GUIDE.md](./TURSO-DEPLOYMENT-GUIDE.md) for step-by-step instructions to deploy free on Vercel + Turso.
-
----
-
-## Default Login
-
-After seeding:
-
-| | |
-|---|---|
-| Email | `jelani@robotadventure.local` |
-| Password | `changeme` |
-
-⚠️ **Change this password immediately after first login** via the user menu → Change password.
 
 ---
 
 ## Documentation
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — Codebase structure, patterns, and how things work
-- [API.md](./API.md) — All API endpoints with request/response examples
-- [CONTRIBUTING.md](./CONTRIBUTING.md) — Development setup, coding standards, and how to add features
-- [TURSO-DEPLOYMENT-GUIDE.md](./TURSO-DEPLOYMENT-GUIDE.md) — Step-by-step deployment guide
+| Document | Purpose |
+|---|---|
+| [README.md](./README.md) | This file — overview, quickstart, feature list |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design, data model, auth flow, deployment topology |
+| [API.md](./API.md) | Every API route, method, request body, and response shape |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Step-by-step Vercel + Turso + Resend setup |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Local dev setup, code style, PR process |
 
 ---
 
 ## License
 
-UNLICENSED — Proprietary. All rights reserved.
+UNLICENSED — proprietary to RA Syncbot Ltd.
