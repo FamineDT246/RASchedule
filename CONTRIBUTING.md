@@ -28,6 +28,9 @@ cp .env.example .env
 # 4. (Optional) Seed the DB with demo data
 bun run seed
 
+# 4b. (Existing deployments only) Run migrations to add new tables/columns
+bun run migrate
+
 # 5. Start dev server
 bun run dev
 ```
@@ -180,6 +183,12 @@ The `src/components/ui/` directory was pruned from 40+ components down to 10. Ea
 
 ### Don't change the auth cookie scheme without testing
 The HMAC-signed cookie approach replaced iron-session (which had Vercel build issues) and a Node `crypto` version (which caused the desktop crash). Any change to `session.ts` needs testing on both desktop and mobile, in both light and dark mode.
+
+### Always run `bun run migrate` after pulling
+If a PR adds new tables or columns, the migration script (`scripts/migrate.ts`) must be run against your local DB and the production Turso DB. The script is idempotent — safe to run multiple times. If you add a new table or column, add the migration to this script (don't rely on on-demand `CREATE TABLE` in API routes alone — that's a fallback, not the primary path).
+
+### Escape HTML in email templates
+The `escapeHtml()` helper in `src/lib/email.ts` must be applied to every user-supplied value interpolated into HTML email bodies. Event names, user names, shirt colors — all can contain `<`, `>`, `&` characters that break email HTML or carry injection payloads. Never interpolate raw user input into email HTML.
 
 ---
 

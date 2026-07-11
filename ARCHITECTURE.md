@@ -64,7 +64,7 @@ All admin mutations are gated by `requireAdmin` which returns a 401/403 response
 
 ## Data Model
 
-Six tables. All UUIDs are v4 strings. Timestamps are ISO strings stored as `datetime('now')`.
+Twelve tables. All UUIDs are v4 strings. Timestamps are ISO strings stored as `datetime('now')`. Run `bun run migrate` to add new tables/columns to an existing database.
 
 ### `User`
 Authentication account. Either an admin or an instructor.
@@ -79,6 +79,7 @@ Authentication account. Either an admin or an instructor.
 | `profileId` | TEXT FK → Profile | Links auth account to staff profile |
 | `inviteToken` | TEXT UNIQUE | One-time token for the invite link |
 | `claimedAt` | DATETIME | Null until the invite is claimed |
+| `emailNotifications` | INTEGER | 1 (default) or 0 — per-user email toggle; bell always works |
 | `createdAt`, `updatedAt` | DATETIME | |
 
 ### `Profile`
@@ -134,6 +135,8 @@ A specific instructor assigned to a specific event on a specific date.
 | `status` | TEXT | `'primary'` or `'alternative'` |
 | `isAlternative` | INTEGER | 0 or 1 (denormalized for fast filtering) |
 | `shirtColor` | TEXT NULL | e.g. `Orange`, `Blue`, `Purple`, `Grey` |
+| `ackStatus` | TEXT NULL | `'confirmed'`, `'declined'`, or null (pending) — set by instructor |
+| `acknowledgedAt` | TEXT NULL | When the instructor acknowledged |
 | `createdAt`, `updatedAt` | DATETIME | |
 
 ### `EventSkill`
@@ -156,6 +159,82 @@ An instructor's interest/availability declaration on an event (not a date — th
 | `status` | TEXT | `'interested'`, `'available'`, `'unavailable'` |
 | `note` | TEXT NULL | |
 | `createdAt`, `updatedAt` | DATETIME | |
+
+### `Skill`
+Reusable skill catalog. Define once, reuse across events and profiles.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT (UUID) | PK |
+| `name` | TEXT UNIQUE | e.g. `Robotics`, `Python`, `Aerial Robotics` |
+| `createdAt` | TEXT | |
+
+Deleting a skill from the catalog does NOT cascade — existing `Profile.skills` (text) and `EventSkill.skillName` rows keep their values.
+
+### `EquipmentCatalog`
+Reusable equipment catalog (optional — admins can also type equipment names directly per event).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT (UUID) | PK |
+| `name` | TEXT UNIQUE | e.g. `Drone (Tello EDU)` |
+| `description` | TEXT NULL | |
+| `createdAt` | TEXT | |
+
+### `EventEquipment`
+Equipment needed for a specific event. Created by admin in the event detail drawer.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT (UUID) | PK |
+| `eventId` | TEXT FK → Event | CASCADE on delete |
+| `name` | TEXT | e.g. `Drones`, `Laptops`, `Charger kit` |
+| `quantity` | INTEGER | How many are needed |
+| `notes` | TEXT NULL | |
+| `createdAt`, `updatedAt` | TEXT | |
+
+### `EquipmentClaim`
+An instructor's claim to bring part or all of an equipment item. Has a unique index on `(equipmentItemId, profileId)` — one claim per instructor per item.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT (UUID) | PK |
+| `equipmentItemId` | TEXT FK → EventEquipment | CASCADE on delete |
+| `profileId` | TEXT FK → Profile | The instructor bringing it |
+| `quantityClaimed` | INTEGER | How many they'll bring |
+| `transportOffered` | INTEGER | 1 = can transport, 0 = needs dropoff |
+| `notes` | TEXT NULL | e.g. "I'll pick them up from the office" |
+| `createdAt`, `updatedAt` | TEXT | |
+
+### `Notification`
+In-app notification bell entries. Created by `notifyUser()` in `email.ts`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT (UUID) | PK |
+| `userId` | TEXT FK → User | CASCADE on delete |
+| `type` | TEXT | `assignment_created`, `assignment_removed`, `opt_in_received`, `event_changed`, etc. |
+| `title` | TEXT | Short headline |
+| `body` | TEXT NULL | Longer description |
+| `eventId` | TEXT NULL | Related event (makes notification clickable) |
+| `assignmentId` | TEXT NULL | Related assignment |
+| `readAt` | TEXT NULL | Null = unread |
+| `createdAt` | TEXT | |
+
+### `EmailQueue`
+Pending digest emails. Rows are created by `notifyUser()` with `urgency = 'digest'` or `'instant'`. Instant emails are sent immediately and marked `sentAt`; digest emails are sent in the 8am digest or when admin clicks "Send now".
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT (UUID) | PK |
+| `userId` | TEXT FK → User | CASCADE on delete |
+| `type` | TEXT | Same as Notification.type |
+| `subject` | TEXT | Email subject line |
+| `body` | TEXT | HTML email body |
+| `eventId` | TEXT NULL | |
+| `urgency` | TEXT | `'instant'` or `'digest'` |
+| `sentAt` | TEXT NULL | Null = pending; non-null = sent |
+| `createdAt` | TEXT | |
 
 ---
 
@@ -249,26 +328,75 @@ Soft conflicts (fatigue, skill gaps) are surfaced in the `ConflictSummaryTab` an
 
 ---
 
-## Email Notifications
+## Email + Notification System
 
-All email is sent via Resend's REST API (`fetch()`, no SDK). The `sendEmail()` helper in `src/lib/email.ts` silently no-ops if `RESEND_API_KEY` is unset, so dev environments without email still work.
+All email is sent via Resend's REST API (`fetch()`, no SDK). The `sendEmail()` helper in `src/lib/email.ts` silently no-ops if `RESEND_API_KEY` is unset, so dev environments without email still work. All user-supplied values are HTML-escaped via `escapeHtml()` before interpolation into email bodies.
 
-### Triggered emails
-| Event | Recipient | Template |
+### Smart digest system
+
+Notifications have two urgency levels:
+
+| Urgency | When | Behavior |
 |---|---|---|
-| Assignment created | Instructor | "You've been assigned to {event} on {date}" |
-| Assignment removed | Instructor | "Your assignment to {event} on {date} was removed" |
-| Opt-in received | Admin | "{instructor} opted in as {status} for {event}" |
-| Daily reminder (cron) | Each instructor with tomorrow assignment | "Reminder: {event} tomorrow at {time}" |
-| Verification code (claim flow) | Claiming instructor | "Your verification code is {code}" |
-| Welcome (post-claim) | New instructor | "Welcome to RA Syncbot" |
+| `instant` | Event is within 72 hours, OR opt-in receipt, OR verification code | Email sent immediately + in-app notification created |
+| `digest` | Event is >72 hours away | In-app notification created immediately; email queued for 8am AST digest |
+
+This prevents email spam when the admin iterates on assignments during planning sessions. The admin can flush the digest queue at any time via the "Send now" button (paper airplane icon in the top bar) — `POST /api/notifications/send-now`.
+
+### Per-user email toggle
+
+Each user has `emailNotifications` (default 1 = on). Instructors can toggle this via the mail icon in their top bar. When off:
+- ✅ In-app bell notifications still work (always on)
+- ❌ No emails sent (digest queue rows are still created but `sendDigests`/`sendAllPending` skip users with the toggle off)
+- ✅ Verification codes + welcome emails bypass the toggle (transactional)
+
+### Notification bell
+
+Both admins and instructors see a bell icon in the top bar. The `NotificationBell` component polls `/api/notifications` every 30 seconds. Unread count shows as a red badge. Click a notification to mark it read; "Mark all read" button clears all.
+
+### Triggered notifications
+| Event | Recipient | Urgency | Type |
+|---|---|---|---|
+| Assignment created | Instructor | instant (if <72h) / digest (if >72h) | `assignment_created` |
+| Assignment removed | Instructor | instant (if <72h) / digest (if >72h) | `assignment_removed` |
+| Opt-in received | All admins | instant | `opt_in_received` |
+| Daily reminder (cron) | Each instructor with assignment in 2 days | instant (direct send, not queued) | `reminder` |
+| Verification code (claim flow) | Claiming instructor | instant (bypasses toggle) | n/a (direct send) |
+| Welcome (post-claim) | New instructor | instant (bypasses toggle) | n/a (direct send) |
 
 ### Vercel Cron
 Two endpoints are intended to be hit by Vercel Cron:
-- `POST /api/reminders` — sends tomorrow's assignment reminders
+- `POST /api/reminders` — sends 2-day reminders AND flushes the daily digest
 - `POST /api/auto-archive` — moves past events to `Archived` status
 
 Configure these in `vercel.json` (not currently set — add when going to production).
+
+---
+
+## Equipment + Skill Catalog
+
+### Skill catalog
+- `Skill` table stores reusable skill names (define once, reuse everywhere)
+- `SkillPicker` component replaces free-text inputs in Events + Team tabs
+- Admins can manage the catalog (add/delete) from inside the picker via the "Manage catalog" link
+- Deleting a skill does NOT cascade — existing `Profile.skills` (text) and `EventSkill.skillName` rows keep their values
+
+### Equipment coordination
+- Admin adds equipment items per event via the `EquipmentSection` in the event detail drawer (admin mode)
+- Each item has: name, quantity needed, optional notes
+- Instructors claim items they'll bring: "I'll bring" button with quantity + "I can transport" checkbox
+- Server-side validation: can't claim more than available (needed minus other instructors' claims)
+- Unique index on `(equipmentItemId, profileId)` prevents duplicate claims
+- Admin sees claims with truck icon (transport offered) per item
+- The instructor event drawer shows the equipment section only if the instructor is assigned to the event
+- Release a claim with the X button
+
+### Acknowledgment system
+- Instructors see ✓ (confirm) / ✗ (decline) buttons on each assignment in the My Assignments tab
+- `PATCH /api/assignments?id=<id>` with `{ ackStatus: 'confirmed' | 'declined' }` — instructors can only ack their own assignments
+- Admin sees per-assignment ack status (✓ or ✗ declined) in the EventDetailDrawer
+- Admin sees a summary: "X confirmed, Y declined, Z pending"
+- Confirmed assignments get a green border; declined get a red border
 
 ---
 

@@ -227,11 +227,19 @@ The iCal endpoint uses `?token=<userId>` as auth (not the session cookie). Get y
 ```bash
 git pull
 bun install        # if deps changed
-bun run seed       # only if you need to wipe + reseed (usually you don't)
+bun run migrate    # run migrations to add new tables/columns (safe, idempotent)
+bun run seed       # only if you need to wipe + reseed (usually you don't — destroys data)
 git push           # Vercel auto-deploys on push to main
 ```
 
-For schema changes, write a migration script (not currently in the repo) or run the new schema against Turso directly via `turso db shell ra-syncbot`.
+**Always run `bun run migrate` after pulling** if there are new tables or columns. The migration script is idempotent — safe to run multiple times. It uses `CREATE TABLE IF NOT EXISTS` and `ALTER TABLE ADD COLUMN` with duplicate-column detection.
+
+The migration script (`scripts/migrate.ts`) handles:
+- Adding `emailNotifications` column to `User`
+- Adding `ackStatus` + `acknowledgedAt` columns to `Assignment`
+- Creating `Skill`, `EquipmentCatalog`, `EventEquipment`, `EquipmentClaim`, `Notification`, `EmailQueue` tables
+- Adding a unique index on `EquipmentClaim(equipmentItemId, profileId)`
+- Seeding the skill catalog from existing `Profile.skills` + `EventSkill` data
 
 ---
 
