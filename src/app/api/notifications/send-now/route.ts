@@ -11,6 +11,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result)
   } catch (e: any) {
     console.error('Send-now error:', e.message)
-    return NextResponse.json({ sent: 0, error: e.message })
+    return NextResponse.json({ sent: 0, error: e.message }, { status: 500 })
   }
 }

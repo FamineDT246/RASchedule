@@ -21,6 +21,16 @@ const URGENT_HOURS = 72 // changes to events within this window fire instantly
 
 // ---------- Low-level send ----------
 
+/** Escape user-supplied text for safe interpolation into HTML email bodies. */
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 export async function sendEmail(to: string, subject: string, html: string) {
   if (!RESEND_API_KEY) {
     console.log('[email] Skipped (no RESEND_API_KEY):', subject, '→', to)
@@ -142,11 +152,14 @@ export async function notifyUser(opts: {
   if (!prefs || !prefs.email) return // no email address → can't email
   if (!alwaysEmail && !prefs.emailNotifications) return // user opted out
 
+  // Capture the queue row id so we can reliably mark it sent (datetime('now') has
+  // 1-second precision and would otherwise fail to match after the sendEmail HTTP call)
+  const emailQueueId = crypto.randomUUID()
   await db.execute({
     sql: `INSERT INTO EmailQueue (id, userId, type, subject, body, eventId, urgency, sentAt, createdAt)
           VALUES (?, ?, ?, ?, ?, ?, ?, NULL, datetime('now'))`,
     args: [
-      crypto.randomUUID(),
+      emailQueueId,
       userId,
       type,
       opts.emailSubject ?? title,
@@ -158,12 +171,12 @@ export async function notifyUser(opts: {
     console.log('[notify] EmailQueue table missing — skipping email queue')
   })
 
-  // 3. If urgency is 'instant', send immediately
+  // 3. If urgency is 'instant', send immediately and mark the row sent by id
   if (urgency === 'instant') {
     await sendEmail(prefs.email, opts.emailSubject ?? title, opts.emailHtml ?? `<p>${body ?? title}</p>`)
     await db.execute({
-      sql: "UPDATE EmailQueue SET sentAt = datetime('now') WHERE userId = ? AND subject = ? AND createdAt = datetime('now')",
-      args: [userId, opts.emailSubject ?? title],
+      sql: "UPDATE EmailQueue SET sentAt = datetime('now') WHERE id = ?",
+      args: [emailQueueId],
     }).catch(() => {})
   }
 }
@@ -177,7 +190,7 @@ export async function notifyAssignmentCreated(profileId: string, eventName: stri
   const urgent = eventId ? await isEventUrgent(eventId) : false
   const title = `New assignment: ${eventName}`
   const body = `You've been assigned to ${eventName} on ${date}${shirtColor ? `. Shirt: ${shirtColor}` : ''}.`
-  const html = `<h2>📅 New Assignment</h2><p><strong>${eventName}</strong> on ${date}${shirtColor ? `<br>Shirt: ${shirtColor}` : ''}</p>`
+  const html = `<h2>📅 New Assignment</h2><p><strong>${escapeHtml(eventName)}</strong> on ${escapeHtml(date)}${shirtColor ? `<br>Shirt: ${escapeHtml(shirtColor)}` : ''}</p>`
 
   await notifyUser({
     userId,
@@ -198,7 +211,7 @@ export async function notifyAssignmentRemoved(profileId: string, eventName: stri
   const urgent = eventId ? await isEventUrgent(eventId) : false
   const title = `Assignment removed: ${eventName}`
   const body = `Your assignment to ${eventName} on ${date} has been removed.`
-  const html = `<p>Your assignment to <strong>${eventName}</strong> on ${date} has been removed.</p>`
+  const html = `<p>Your assignment to <strong>${escapeHtml(eventName)}</strong> on ${escapeHtml(date)} has been removed.</p>`
 
   await notifyUser({
     userId,
@@ -217,7 +230,7 @@ export async function notifyOptInReceived(userName: string, status: string, even
   const adminIds = await getAdminUserIds()
   const title = `${userName} ${status}: ${eventName}`
   const body = `${userName} marked themselves as ${status} for ${eventName}.`
-  const html = `<p><strong>${userName}</strong> marked themselves as <strong>${status}</strong> for ${eventName}.</p>`
+  const html = `<p><strong>${escapeHtml(userName)}</strong> marked themselves as <strong>${escapeHtml(status)}</strong> for ${escapeHtml(eventName)}.</p>`
 
   await Promise.all(adminIds.map(adminId =>
     notifyUser({
@@ -267,7 +280,7 @@ export async function sendDigests() {
       <h2 style="color: #10b981;">RA Syncbot — Daily Digest</h2>
       <p>You have ${items.rows.length} update${items.rows.length > 1 ? 's' : ''}:</p>
       <ul>
-        ${items.rows.map((i: any) => `<li><strong>${i.subject}</strong><br><span style="color: #666; font-size: 12px;">${i.body}</span></li>`).join('')}
+        ${items.rows.map((i: any) => `<li><strong>${escapeHtml(i.subject)}</strong><br><span style="color: #666; font-size: 12px;">${escapeHtml(i.body)}</span></li>`).join('')}
       </ul>
       <p style="color: #666; font-size: 11px; margin-top: 20px;">Log in to <a href="https://ra-syncbot.com">ra-syncbot.com</a> to view details.</p>
     </div>`
@@ -315,7 +328,7 @@ export async function sendAllPending() {
       <h2 style="color: #10b981;">RA Syncbot — Update</h2>
       <p>You have ${items.rows.length} update${items.rows.length > 1 ? 's' : ''}:</p>
       <ul>
-        ${items.rows.map((i: any) => `<li><strong>${i.subject}</strong><br><span style="color: #666; font-size: 12px;">${i.body}</span></li>`).join('')}
+        ${items.rows.map((i: any) => `<li><strong>${escapeHtml(i.subject)}</strong><br><span style="color: #666; font-size: 12px;">${escapeHtml(i.body)}</span></li>`).join('')}
       </ul>
     </div>`
 
@@ -356,7 +369,7 @@ export async function sendReminders() {
   for (const a of assignments.rows as any[]) {
     const emailOn = a.emailNotifications === null || a.emailNotifications === undefined ? true : !!a.emailNotifications
     if (!emailOn) continue
-    const html = `<h2>⏰ Reminder</h2><p>You're assigned to <strong>${a.eventName}</strong> on ${targetDate} at ${a.startTime}.${a.location ? ` Location: ${a.location}.` : ''}${a.shirtColor ? ` Shirt: ${a.shirtColor}.` : ''}</p>`
+    const html = `<h2>⏰ Reminder</h2><p>You're assigned to <strong>${escapeHtml(a.eventName)}</strong> on ${escapeHtml(targetDate)} at ${escapeHtml(a.startTime)}.${a.location ? ` Location: ${escapeHtml(a.location)}.` : ''}${a.shirtColor ? ` Shirt: ${escapeHtml(a.shirtColor)}.` : ''}</p>`
     const success = await sendEmail(a.email, `Reminder: ${a.eventName} in 2 days`, html)
     if (success) sent++
   }

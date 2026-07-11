@@ -267,12 +267,14 @@ function ClaimForm({ itemId, maxQty, onSubmit, disabled }: {
   const [qty, setQty] = useState(Math.min(1, maxQty))
   const [transport, setTransport] = useState(true)
 
+  // Clamp qty during render if maxQty shrinks (e.g. another instructor claimed while form was open)
+  const effectiveQty = Math.min(qty, maxQty)
   if (maxQty <= 0) return null
 
   return (
     <div className="flex items-center gap-2 pt-1 border-t border-border/40">
       <button
-        onClick={() => onSubmit(qty, transport)}
+        onClick={() => onSubmit(effectiveQty, transport)}
         disabled={disabled}
         className="px-2.5 py-1 text-[11px] rounded-md bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 flex items-center gap-1 min-h-[28px]"
       >
@@ -283,7 +285,7 @@ function ClaimForm({ itemId, maxQty, onSubmit, disabled }: {
         type="number"
         min={1}
         max={maxQty}
-        value={qty}
+        value={effectiveQty}
         onChange={e => setQty(Math.max(1, Math.min(maxQty, Number(e.target.value))))}
         className="w-14 px-1.5 py-1 text-[11px] rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
         aria-label="Quantity you'll bring"

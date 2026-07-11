@@ -54,7 +54,11 @@ export async function POST(req: NextRequest) {
       args: [id, name.trim()],
     })
   } catch (e: any) {
-    // Table doesn't exist — create it first
+    // UNIQUE constraint = skill already exists
+    if (String(e.message).includes('UNIQUE')) {
+      return NextResponse.json({ error: 'Skill already exists' }, { status: 409 })
+    }
+    // Table doesn't exist — create it then retry the insert
     try {
       await db.execute({ sql: 'CREATE TABLE IF NOT EXISTS Skill (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, createdAt TEXT NOT NULL)' })
       await db.execute({

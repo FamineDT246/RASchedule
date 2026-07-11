@@ -29,7 +29,11 @@ async function migrate() {
     await db.execute({ sql: 'ALTER TABLE User ADD COLUMN emailNotifications INTEGER NOT NULL DEFAULT 1' })
     console.log('  ✓ User.emailNotifications added')
   } catch (e: any) {
-    if (!String(e.message).includes('duplicate column')) console.log('  · User.emailNotifications already exists')
+    if (String(e.message).includes('duplicate column')) {
+      console.log('  · User.emailNotifications already exists')
+    } else {
+      console.error('  ✗ Failed to add User.emailNotifications:', e.message)
+    }
   }
 
   // Assignment.ackStatus + acknowledgedAt
@@ -37,13 +41,21 @@ async function migrate() {
     await db.execute({ sql: 'ALTER TABLE Assignment ADD COLUMN ackStatus TEXT' })
     console.log('  ✓ Assignment.ackStatus added')
   } catch (e: any) {
-    if (!String(e.message).includes('duplicate column')) console.log('  · Assignment.ackStatus already exists')
+    if (String(e.message).includes('duplicate column')) {
+      console.log('  · Assignment.ackStatus already exists')
+    } else {
+      console.error('  ✗ Failed to add Assignment.ackStatus:', e.message)
+    }
   }
   try {
     await db.execute({ sql: 'ALTER TABLE Assignment ADD COLUMN acknowledgedAt TEXT' })
     console.log('  ✓ Assignment.acknowledgedAt added')
   } catch (e: any) {
-    if (!String(e.message).includes('duplicate column')) console.log('  · Assignment.acknowledgedAt already exists')
+    if (String(e.message).includes('duplicate column')) {
+      console.log('  · Assignment.acknowledgedAt already exists')
+    } else {
+      console.error('  ✗ Failed to add Assignment.acknowledgedAt:', e.message)
+    }
   }
 
   // ── New tables ──────────────────────────────────────────────────────────
@@ -91,6 +103,14 @@ async function migrate() {
     FOREIGN KEY (equipmentItemId) REFERENCES EventEquipment(id) ON DELETE CASCADE
   )` })
   console.log('  ✓ EquipmentClaim table ready')
+
+  // Unique index: one claim per instructor per equipment item (prevents TOCTOU race)
+  try {
+    await db.execute({ sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_equipmentclaim_item_profile ON EquipmentClaim (equipmentItemId, profileId)' })
+    console.log('  ✓ EquipmentClaim unique index ready')
+  } catch (e: any) {
+    console.log('  · EquipmentClaim unique index already exists or failed:', e.message)
+  }
 
   // Notifications (in-app bell)
   await db.execute({ sql: `CREATE TABLE IF NOT EXISTS Notification (

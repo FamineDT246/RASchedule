@@ -42,6 +42,10 @@ export async function POST(req: NextRequest) {
       args: [id, name.trim(), description ?? null],
     })
   } catch (e: any) {
+    if (String(e.message).includes('UNIQUE')) {
+      return NextResponse.json({ error: 'Equipment already exists' }, { status: 409 })
+    }
+    // Table doesn't exist — create it then retry
     try {
       await db.execute({ sql: 'CREATE TABLE IF NOT EXISTS EquipmentCatalog (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, description TEXT, createdAt TEXT NOT NULL)' })
       await db.execute({
