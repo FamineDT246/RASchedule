@@ -27,6 +27,7 @@ import { ChevronDown, KeyRound, LogOut, User, X, CalendarDays, Sun, Moon, Bell, 
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useTheme } from 'next-themes'
 import { NotificationBell } from '@/components/scheduler/NotificationBell'
+import { cn } from '@/lib/utils'
 
 import {
   startOfWeekISO, addDaysISO, formatShortDate, todayInBarbados,
