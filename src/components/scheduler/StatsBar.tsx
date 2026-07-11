@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Users, AlertTriangle, CheckCircle2, CalendarDays, ChevronDown, KeyRound, LogOut, User, Sun, Moon, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NotificationBell } from './NotificationBell'
+import { InstallAppMenuItem } from './InstallAppMenuItem'
 
 type Props = {
   totalSlots: number
@@ -137,6 +138,7 @@ export function StatsBar({
                   <KeyRound className="h-3.5 w-3.5" />
                   Change password
                 </button>
+                <InstallAppMenuItem onAfterAction={() => setMenuOpen(false)} />
                 <button
                   onClick={() => { setMenuOpen(false); onLogout() }}
                   className="w-full text-left px-3 py-2 text-xs hover:bg-muted text-rose-300 flex items-center gap-2"

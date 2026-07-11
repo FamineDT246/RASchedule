@@ -27,6 +27,7 @@ import { ChevronDown, KeyRound, LogOut, User, X, CalendarDays, Sun, Moon, Bell, 
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useTheme } from 'next-themes'
 import { NotificationBell } from '@/components/scheduler/NotificationBell'
+import { InstallAppMenuItem } from '@/components/scheduler/InstallAppMenuItem'
 import { cn } from '@/lib/utils'
 
 import {
@@ -802,6 +803,7 @@ function InstructorTopBar({ user, onLogout, onChangePassword }: {
                   <CalendarDays className="h-3.5 w-3.5" />
                   Subscribe to calendar
                 </a>
+                <InstallAppMenuItem onAfterAction={() => setMenuOpen(false)} />
                 <button
                   onClick={() => { setMenuOpen(false); onLogout() }}
                   className="w-full text-left px-3 py-2 text-xs hover:bg-muted text-rose-300 flex items-center gap-2"
