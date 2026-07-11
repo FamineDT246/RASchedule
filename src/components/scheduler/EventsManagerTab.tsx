@@ -14,6 +14,7 @@ import {
 import { Accordion } from './Accordion'
 import { HelpTooltip } from './HelpTooltip'
 import { SkillPicker } from './SkillPicker'
+import { EquipmentSection } from './EquipmentSection'
 
 type EventRow = EventView & {
   _assignmentCount?: number
@@ -557,6 +558,17 @@ function EventEditDrawer({ event, onClose, onSaved }: {
             <div className="flex items-start gap-2 p-2 rounded-md bg-zinc-500/10 border border-zinc-500/30 text-[10px] text-zinc-300">
               <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
               <span>Draft events do not appear on the calendar. Set status to Tentative or Confirmed when dates are firm.</span>
+            </div>
+          )}
+
+          {/* Equipment section — only when editing an existing event */}
+          {isEdit && event && (
+            <EquipmentSection event={event} mode="admin" />
+          )}
+          {!isEdit && (
+            <div className="flex items-start gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-200">
+              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+              <span>Save the event first, then reopen it to add equipment and assign instructors.</span>
             </div>
           )}
         </div>

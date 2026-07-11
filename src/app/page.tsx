@@ -615,7 +615,7 @@ export default function Home() {
                   animate={{ x: 0, opacity: 1 }}
                   exit={{ x: 400, opacity: 0 }}
                   transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-                  className="absolute inset-y-0 right-0"
+                  className="absolute inset-y-0 right-0 z-30"
                 >
                   <EventDetailDrawer
                     event={selectedEvent}
