@@ -95,6 +95,11 @@ The schema isn't included as a SQL file — it's created by the seed script.
 
 > ⚠️ The seed script **wipes all existing data** before inserting. It is safe to run multiple times, but don't run it in production after you have real data.
 
+5. Run migrations (adds the new tables: Notification, EmailQueue, Skill, EquipmentCatalog, EventEquipment, EquipmentClaim + new columns on User + Assignment):
+   ```bash
+   bun run migrate
+   ```
+
 ---
 
 ## Step 4 — Deploy to Vercel
@@ -185,14 +190,46 @@ Commit and push — Vercel picks up the cron config on the next deploy.
 1. Visit your Vercel URL (or custom domain).
 2. Log in with the admin credentials created by the seed:
    - Email: `robotadventuresltd@gmail.com`
-   - Password: `admin123`
+   - Password: `changeme`
 3. **Immediately change the password** via the account menu (top-right) → Change password.
 4. Walk through the tabs:
    - **Scheduler** — drag an instructor onto an event
    - **Calendar** — click an event chip
-   - **Events** — edit an event
-   - **Team** — view instructor profiles
+   - **Events** — edit an event (equipment section appears when editing existing events)
+   - **Team** — view instructor profiles (skill picker with catalog management)
    - **Invites** — create an invite link and open it in an incognito window to test the claim flow
+
+---
+
+## PWA Installation
+
+### Desktop (Chrome/Edge)
+- The install prompt auto-appears after the service worker registers (~30 seconds)
+- Click the install icon in the address bar, or use the browser menu → Install app
+
+### Android (Chrome/Samsung Internet)
+- The install prompt auto-appears after the service worker registers + sufficient user engagement
+- Alternatively: browser menu (⋮) → Install app
+- Manual fallback: account menu → "Install app" → shows platform-specific instructions
+
+### iOS (Safari)
+- iOS doesn't support `beforeinstallprompt`
+- Account menu → "Install app" → shows step-by-step instructions (Share → Add to Home Screen)
+- Or: Safari share button → Add to Home Screen
+
+### Browser uninstall cooldown
+Chromium-based browsers enforce a 1-2 week cooldown after you manually uninstall a PWA — during this window, `beforeinstallprompt` won't fire. To bypass for testing:
+1. Open `chrome://flags` on your phone
+2. Search for "Bypass user engagement checks"
+3. Enable it and relaunch Chrome
+
+### Regenerating icons
+If you need to replace the logo/icons:
+1. Place a source PNG in `upload/` (ideally square or center-croppable, with a transparent or solid background)
+2. Update the `SRC` path in `scripts/generate-icons.ts`
+3. Run `bun run scripts/generate-icons.ts`
+4. The script detects and removes AI-generated "transparency checkerboard" patterns automatically
+5. Commit and push the new `public/logo.png`, `public/icon-192.png`, `public/icon-512.png`, `public/favicon.ico`
 
 ---
 
@@ -219,6 +256,16 @@ This was a historical bug caused by Node's `crypto` module leaking into the clie
 
 ### iCal feed returns 401
 The iCal endpoint uses `?token=<userId>` as auth (not the session cookie). Get your userId from the account menu → "Subscribe to calendar" link. Don't share this link — anyone with it can see your schedule.
+
+### PWA install prompt not appearing
+1. Verify the service worker is registered: Chrome DevTools → Application → Service Workers
+2. Verify the manifest is served: visit `/manifest.json` in the browser
+3. Verify icons exist: visit `/icon-192.png` and `/icon-512.png`
+4. Check for the browser's uninstall cooldown (1-2 weeks after manual uninstall) — use `chrome://flags` to bypass
+5. Try the manual fallback: account menu → "Install app"
+
+### "Send now" button shows error
+The `EmailQueue` table might not exist. Run `bun run migrate` locally to create it.
 
 ---
 

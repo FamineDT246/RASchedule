@@ -48,20 +48,20 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full breakdown. Key directories
 ```
 src/
 ├── app/
-│   ├── api/             # Route handlers — one folder per resource
-│   ├── page.tsx         # Main app shell (auth gate, tabs, DnD)
-│   └── providers.tsx    # TanStack Query + theme + Sonner
+│   ├── api/             # 22 route handlers — one folder per resource
+│   ├── page.tsx         # Main app shell (auth gate, tabs, DnD, drawers)
+│   ├── layout.tsx       # Root layout + metadata + icons
+│   └── providers.tsx    # TanStack Query + theme + Sonner + SW registration
 ├── components/
-│   ├── scheduler/       # App-specific components
-│   └── ui/              # Pruned shadcn/ui (10 components only)
+│   ├── scheduler/       # 20 app-specific components
+│   └── ui/              # 1 shadcn/ui component (sonner toaster only)
 ├── hooks/
 │   └── use-is-mobile.ts
 └── lib/
-    ├── auth-helpers.ts  # requireAdmin / getAuthUser
-    ├── conflicts.ts     # Pure conflict-detection functions
+    ├── auth-helpers.ts  # getAuthUser + requireAdmin
     ├── db.ts            # Turso client
-    ├── email.ts         # Resend wrapper
-    ├── scheduler-types.ts  # Shared types + date helpers
+    ├── email.ts         # Resend wrapper + digest queue + notifications
+    ├── scheduler-types.ts  # Shared types + date helpers + color maps
     └── session.ts       # HMAC cookies (server-only)
 ```
 
@@ -90,6 +90,7 @@ src/
   - 44px minimum touch targets on mobile (enforced in `globals.css` `@media (pointer: coarse)`)
   - All interactive elements must have an `aria-label` if their text content is ambiguous
 - Dark mode is via `next-themes` — use Tailwind's `dark:` variant, never hardcode colors.
+- Light mode variables are tuned for contrast (darker borders, darker muted text) — see `globals.css` `:root`.
 
 ### API routes
 - Every route starts with `getAuthUser(req)` or `requireAdmin(req)`.
@@ -102,6 +103,12 @@ src/
 - Raw SQL via `db.execute({ sql, args })`. **Always use `?` placeholders** — never string-interpolate user input.
 - Column names are camelCase (matches the JS object shape). Table names are PascalCase.
 - For complex queries, write the SQL as a template literal with the placeholders on separate lines for readability.
+- When adding new tables/columns, add them to `scripts/migrate.ts` (idempotent — uses `IF NOT EXISTS`).
+
+### Email
+- All user-supplied values interpolated into HTML email bodies must be wrapped in `escapeHtml()` (defined in `src/lib/email.ts`).
+- Use `notifyUser()` for any notification that should create both an in-app bell notification AND an email. Don't call `sendEmail()` directly for user-facing notifications.
+- Verification codes + welcome emails bypass the per-user email toggle (transactional) — call `sendEmail()` directly for those.
 
 ### File naming
 - Components: `PascalCase.tsx` (e.g. `EventDetailDrawer.tsx`)
@@ -164,6 +171,9 @@ There's no automated test suite yet. Manual test checklist before merging:
 - [ ] Esc closes drawers, modals, and tap selections
 - [ ] Light/dark mode toggle works
 - [ ] No `Cannot access 'g' before initialization` errors in console
+- [ ] Notification bell shows unread count + marks read on click
+- [ ] Equipment claims work (instructor can claim, admin sees claims)
+- [ ] Skill picker closes on blur + Escape
 
 ---
 
@@ -179,7 +189,7 @@ This caused a desktop-only crash that took a full session to diagnose. Use `useS
 The seed script wipes all data. It's safe for local dev and for the initial Turso setup, but never run it against a DB with real data. The `/api/seed` endpoint is disabled in production (returns 403) as a safety net.
 
 ### Don't add shadcn/ui components back without checking usage
-The `src/components/ui/` directory was pruned from 40+ components down to 10. Each remaining component is actually used. If you need a new component, add it manually (don't run `npx shadcn add` — it pulls in deps we removed).
+The `src/components/ui/` directory was pruned from 40+ components down to 1 (`sonner`). If you need a new component, add it manually (don't run `npx shadcn add` — it pulls in deps we removed).
 
 ### Don't change the auth cookie scheme without testing
 The HMAC-signed cookie approach replaced iron-session (which had Vercel build issues) and a Node `crypto` version (which caused the desktop crash). Any change to `session.ts` needs testing on both desktop and mobile, in both light and dark mode.
@@ -190,11 +200,20 @@ If a PR adds new tables or columns, the migration script (`scripts/migrate.ts`) 
 ### Escape HTML in email templates
 The `escapeHtml()` helper in `src/lib/email.ts` must be applied to every user-supplied value interpolated into HTML email bodies. Event names, user names, shirt colors — all can contain `<`, `>`, `&` characters that break email HTML or carry injection payloads. Never interpolate raw user input into email HTML.
 
+### Service worker cache busting
+When you change `public/sw.js`, bump `CACHE_NAME` to a new version so old caches are cleared on activate. The current version is `ra-syncbot-cache-v2`.
+
+### PWA icon format
+PWA maskable icons (`purpose: "any maskable"`) must be fully opaque — no transparency. The `generate-icons.ts` script generates opaque versions for this purpose. The transparent `logo.png` is for in-app header use only, not for PWA installation.
+
+### Browser PWA uninstall cooldown
+Chromium browsers suppress `beforeinstallprompt` for 1-2 weeks after a user manually uninstalls a PWA. This is browser-level behavior, not a bug in the app. For testing, use `chrome://flags` → "Bypass user engagement checks".
+
 ---
 
 ## Getting Help
 
 - Read [ARCHITECTURE.md](./ARCHITECTURE.md) for system design questions
 - Read [API.md](./API.md) for endpoint specifics
-- Read [DEPLOYMENT.md](./DEPLOYMENT.md) for infra setup
+- Read [DEPLOYMENT.md](./DEPLOYMENT.md) for infra setup + troubleshooting
 - Check `git log` for context on past decisions — commit messages explain why things were done

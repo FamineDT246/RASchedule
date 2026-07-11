@@ -32,6 +32,7 @@ Login or refresh the current session.
     "email": "user@example.com",
     "role": "admin",
     "profileId": "uuid" | null,
+    "emailNotifications": true,
     "profile": { "id": "uuid", "name": "...", "roleTier": "lead", "role": "...", "skills": "...", "unavailable": "..." } | null
   }
 }
@@ -94,6 +95,15 @@ Change the current user's password. Requires authentication.
 
 ---
 
+### `POST /api/auth/update-email-prefs`
+Toggle email notifications for the current user. The notification bell is always on regardless of this setting.
+
+**Request body** — `{ "emailNotifications": true }`
+
+**200 Response** — `{ "ok": true, "emailNotifications": true }`
+
+---
+
 ## Schedule
 
 ### `GET /api/schedule?from=YYYY-MM-DD&to=YYYY-MM-DD`
@@ -147,7 +157,7 @@ Create a new assignment. **Admin only.** Runs server-side conflict validation.
 **200 Response** — `{ "assignment": AssignmentView }`
 **409 Response** — `{ "error": "Conflict: ...", "conflicts": [...] }`
 
-Triggers `notifyAssignmentCreated` email if email is configured.
+Triggers `notifyAssignmentCreated` email (instant if event <72h, digest otherwise).
 
 ---
 
@@ -167,13 +177,20 @@ Create the same assignment across multiple dates. **Admin only.**
 
 ---
 
-### `PATCH /api/assignments`
-Update an existing assignment (e.g. change shirt color, toggle alternative). **Admin only.**
+### `PATCH /api/assignments?id=<id>`
+Update an existing assignment. Two modes:
 
-**Request body**
+**Instructor mode** — acknowledge an assignment (instructors can only ack their own):
 ```json
-{ "id": "uuid", "patch": { "shirtColor": "Blue", "isAlternative": false } }
+{ "ackStatus": "confirmed" }
 ```
+or `{ "ackStatus": "declined" }`
+
+**Admin mode** — update assignment fields:
+```json
+{ "shirtColor": "Blue", "isAlternative": false }
+```
+
 **200 Response** — `{ "assignment": AssignmentView }`
 
 ---
@@ -183,7 +200,7 @@ Remove an assignment. **Admin only.**
 
 **200 Response** — `{ "ok": true }`
 
-Triggers `notifyAssignmentRemoved` email if email is configured.
+Triggers `notifyAssignmentRemoved` email (instant if event <72h, digest otherwise).
 
 ---
 
@@ -192,7 +209,7 @@ Triggers `notifyAssignmentRemoved` email if email is configured.
 ### `GET /api/events`
 List all events. **Admin only.**
 
-**200 Response** — `{ "events": [ EventView ] }`
+**200 Response** — `[ EventView ]`
 
 ---
 
@@ -220,7 +237,7 @@ Create a new event. **Admin only.**
   "setupDate": null,
   "setupTime": null,
   "notes": "",
-  "requiredSkills": ["Aerial Robotics", "Python"]
+  "skills": ["Aerial Robotics", "Python"]
 }
 ```
 **200 Response** — `{ "event": EventView }`
@@ -246,7 +263,7 @@ Delete an event. **Admin only.** Also deletes all child assignments and EventSki
 ### `GET /api/profiles`
 List all staff profiles. **Admin only.**
 
-**200 Response** — `{ "profiles": [ ProfileView ] }`
+**200 Response** — `[ ProfileView ]`
 
 ---
 
@@ -306,7 +323,7 @@ List the current instructor's opt-ins. **Authenticated.**
 ---
 
 ### `POST /api/opt-ins`
-Create or update an opt-in. **Authenticated.**
+Create or update an opt-in. **Authenticated (instructors only).**
 
 **Request body**
 ```json
@@ -316,7 +333,7 @@ Create or update an opt-in. **Authenticated.**
 
 **200 Response** — `{ "optIn": OptInView }`
 
-Triggers `notifyOptInReceived` email to the admin if email is configured.
+Triggers `notifyOptInReceived` email to all admins (always instant).
 
 ---
 
@@ -344,56 +361,6 @@ Create a new invite. **Admin only.**
 Revoke an invite. **Admin only.** Only works on unclaimed invites.
 
 **200 Response** — `{ "ok": true }`
-
----
-
-## Notifications
-
-### `GET /api/notifications`
-List recent email notifications sent. **Admin only.** Useful for auditing.
-
-**200 Response** — `{ "notifications": [ { id, to, subject, sentAt, status } ] }`
-
----
-
-## iCal
-
-### `GET /api/ical?token=<userId>`
-Return an iCal calendar feed of the instructor's assignments. No session cookie required — the `token` (userId) acts as the auth.
-
-**200 Response** — `Content-Type: text/calendar`
-```
-BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//RA Syncbot//Instructor Calendar//EN
-BEGIN:VEVENT
-UID:assignment-uuid@ra-syncbot.com
-DTSTART:20260706T090000Z
-DTEND:20260706T150000Z
-SUMMARY:WSB — Aerial Robotics
-LOCATION:SJPI
-END:VEVENT
-...
-END:VCALENDAR
-```
-
-Instructors subscribe via their account menu → "Subscribe to calendar".
-
----
-
-## Cron endpoints
-
-These are intended to be called by Vercel Cron (or any external scheduler).
-
-### `POST /api/reminders`
-Send reminder emails for assignments happening in 2 days, AND send the daily digest of pending notifications.
-
-**200 Response** — `{ "reminders": N, "digests": N, "skipped": boolean }`
-
-### `POST /api/auto-archive`
-Move all events whose `endDate` is in the past to `Archived` status.
-
-**200 Response** — `{ "archived": N }`
 
 ---
 
@@ -431,17 +398,6 @@ Mark a single notification as read. If `id` is omitted, marks ALL of the user's 
 **Admin only.** Flush all pending digest emails immediately. Useful when the admin has finished iterating on assignments and wants to notify instructors right away instead of waiting for the 8am digest.
 
 **200 Response** — `{ "sent": N, "skipped": boolean }`
-
----
-
-## Email preferences
-
-### `POST /api/auth/update-email-prefs`
-Toggle email notifications for the current user. The notification bell is always on regardless of this setting.
-
-**Request body** — `{ "emailNotifications": true }`
-
-**200 Response** — `{ "ok": true, "emailNotifications": true }`
 
 ---
 
@@ -544,10 +500,51 @@ Create or update a claim. Instructors say "I'll bring this" and optionally mark 
 }
 ```
 
-If the instructor already has a claim on this item, the existing claim is updated.
+Server-side validation: can't claim more than available (needed minus other instructors' claims). If the instructor already has a claim on this item, the existing claim is updated.
 
 ### `DELETE /api/equipment-claims?id=<claimId>`
 Release a claim. Instructors can only release their own claims; admins can release any.
+
+---
+
+## iCal
+
+### `GET /api/ical?token=<userId>`
+Return an iCal calendar feed of the instructor's assignments. No session cookie required — the `token` (userId) acts as the auth.
+
+**200 Response** — `Content-Type: text/calendar`
+```
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//RA Syncbot//Instructor Calendar//EN
+BEGIN:VEVENT
+UID:assignment-uuid@ra-syncbot.com
+DTSTART:20260706T090000Z
+DTEND:20260706T150000Z
+SUMMARY:WSB — Aerial Robotics
+LOCATION:SJPI
+END:VEVENT
+...
+END:VCALENDAR
+```
+
+Instructors subscribe via their account menu → "Subscribe to calendar".
+
+---
+
+## Cron endpoints
+
+These are intended to be called by Vercel Cron (or any external scheduler).
+
+### `POST /api/reminders`
+Send reminder emails for assignments happening in 2 days, AND send the daily digest of pending notifications.
+
+**200 Response** — `{ "reminders": N, "digests": N, "skipped": boolean }`
+
+### `POST /api/auto-archive`
+Move all events whose `endDate` is in the past to `Archived` status.
+
+**200 Response** — `{ "archived": N }`
 
 ---
 
