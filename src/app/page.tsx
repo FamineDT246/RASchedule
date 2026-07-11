@@ -110,18 +110,6 @@ export default function Home() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  // Close drawers/modals with Esc key
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      if (selected) { setSelected(null); return }
-      if (showChangePassword) { setShowChangePassword(false); return }
-      if (tapSelectedProfileId) { setTapSelectedProfileId(null); return }
-    }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
-  }, [selected, showChangePassword, tapSelectedProfileId])
-
   // Print handler — renders PrintLayout to a portal, triggers window.print(), then cleans up
   const handlePrint = useCallback(() => {
     setPrintMode(true)
