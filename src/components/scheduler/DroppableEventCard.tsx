@@ -36,7 +36,7 @@ export function DroppableEventCard({
   const { setNodeRef, isOver } = useDroppable({
     id: `drop-${event.id}-${date}`,
     data: { type: 'event-drop', eventId: event.id, date },
-    disabled: tapAssignMode || isReadOnly,
+    disabled: tapAssignMode || isPast,
   })
 
   const primaryCount = assignments.filter(a => !a.isAlternative).length
@@ -45,8 +45,6 @@ export function DroppableEventCard({
   const needed = event.requiredInstructors
   const isFull = filled >= needed
   const isCancelled = event.status === 'Cancelled'
-  const isArchived = event.status === 'Archived'
-  const isReadOnly = isPast || isCancelled || isArchived
   const isTentative = event.status === 'Tentative'
   const colors = hostColor(event.hostColor)
 
@@ -64,10 +62,10 @@ export function DroppableEventCard({
         selected && 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-background',
         isOver && 'ring-2 ring-emerald-400 scale-[1.02]',
         highlightTapTarget && !isPast && 'ring-2 ring-emerald-400/60 animate-pulse cursor-pointer',
-        isCancelled || isArchived
-          ? 'border-rose-500/40 opacity-60'
+        isCancelled
+          ? 'border-rose-500/40'
           : isPast
-            ? 'border-zinc-600/40 opacity-60'
+            ? 'border-zinc-600/40'
             : isFull
               ? 'border-emerald-500/40'
               : 'border-amber-500/30',

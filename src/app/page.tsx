@@ -56,7 +56,6 @@ export default function Home() {
   const { data: meData, refetch: refetchMe } = useQuery({ queryKey: ['me'], queryFn: fetchMe })
   const user = meData?.user ?? null
 
-  // Token claim flow — read on client only to avoid hydration mismatch
   const [claimToken, setClaimToken] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
@@ -86,11 +85,15 @@ export default function Home() {
   // Push a dummy history state on mount; when user presses back, we intercept it
   // and show a toast instead of navigating away.
   useEffect(() => {
+    // Only run in browser
     if (typeof window === 'undefined') return
+    // Push a state so there's something to go "back" to
     window.history.pushState({ app: true }, '', window.location.href)
 
     const handlePopState = (e: PopStateEvent) => {
+      // User pressed back — re-push the state so they stay in the app
       window.history.pushState({ app: true }, '', window.location.href)
+      // Show a toast telling them to press back again to leave
       toast('Press back again to exit', {
         description: 'Use the tabs to navigate within the app.',
         duration: 3000,

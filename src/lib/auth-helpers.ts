@@ -1,4 +1,3 @@
-import "server-only";
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from './db'
 import { getSessionFromRequest } from './session'

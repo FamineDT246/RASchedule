@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import {
   Calendar, Clock, MapPin, Users, Check, X, Star, AlertCircle, Shield, Shirt,
-  Plus, Trash2, X as XIcon, CalendarDays,
+  ChevronLeft, ChevronRight, Plus, Trash2, LayoutGrid, List, X as XIcon, CalendarDays,
 } from 'lucide-react'
 import { Accordion } from './Accordion'
 import { CalendarView } from './CalendarView'
@@ -46,17 +46,8 @@ export function InstructorView({ user }: { user: AuthUser }) {
   const { data } = useQuery({ queryKey: ['schedule'], queryFn: fetchSchedule })
   const { data: optIns } = useQuery({ queryKey: ['my-opt-ins'], queryFn: fetchMyOptIns })
   const { data: myProfile } = useQuery({ queryKey: ['my-profile'], queryFn: fetchMyProfile })
-  const [viewMode, setViewMode] = useState<'assignments' | 'events' | 'calendar'>('assignments')
+  const [viewMode, setViewMode] = useState<'carousel' | 'list' | 'calendar'>('carousel')
   const [selectedEvent, setSelectedEvent] = useState<EventView | null>(null)
-
-  // Close event drawer with Esc
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && selectedEvent) setSelectedEvent(null)
-    }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
-  }, [selectedEvent])
 
   const optInMutation = useMutation({
     mutationFn: async (args: { eventId: string; status: string }) => {
@@ -95,57 +86,52 @@ export function InstructorView({ user }: { user: AuthUser }) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* Tab navigation */}
-      <nav className="border-b border-border/60 bg-card/30 flex items-center gap-1 px-3 overflow-x-auto" role="tablist" aria-label="Instructor views">
-        <button
-          role="tab"
-          aria-selected={viewMode === 'assignments'}
-          onClick={() => setViewMode('assignments')}
-          className={cn(
-            'px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap min-h-[44px] flex items-center',
-            viewMode === 'assignments'
-              ? 'border-emerald-400 text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <Calendar className="h-4 w-4 mr-1.5 inline" />
-          My Assignments
-          {myAssignments.length > 0 && (
-            <span className="ml-1.5 text-xs text-muted-foreground">({myAssignments.length})</span>
-          )}
-        </button>
-        <button
-          role="tab"
-          aria-selected={viewMode === 'events'}
-          onClick={() => setViewMode('events')}
-          className={cn(
-            'px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap min-h-[44px] flex items-center',
-            viewMode === 'events'
-              ? 'border-emerald-400 text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <Star className="h-4 w-4 mr-1.5 inline" />
-          Opt In
-          {optableEvents.length > 0 && (
-            <span className="ml-1.5 text-xs text-muted-foreground">({optableEvents.length})</span>
-          )}
-        </button>
-        <button
-          role="tab"
-          aria-selected={viewMode === 'calendar'}
-          onClick={() => setViewMode('calendar')}
-          className={cn(
-            'px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap min-h-[44px] flex items-center',
-            viewMode === 'calendar'
-              ? 'border-emerald-400 text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <CalendarDays className="h-4 w-4 mr-1.5 inline" />
-          Calendar
-        </button>
-      </nav>
+      <div className="px-3 sm:px-4 py-2 border-b border-border/60 bg-card/40 flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-xs text-muted-foreground truncate">
+          Opt in to events you&apos;d like to work
+        </p>
+        <div className="flex rounded-md border border-border/60 overflow-hidden shrink-0">
+          <button
+            onClick={() => setViewMode('carousel')}
+            className={cn(
+              'px-3 py-2 text-sm flex items-center gap-1 min-h-[44px] min-w-[44px]',
+              viewMode === 'carousel'
+                ? 'bg-emerald-500/15 text-emerald-300'
+                : 'text-muted-foreground hover:bg-muted',
+            )}
+            aria-pressed={viewMode === 'carousel'}
+            title="Carousel view"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={cn(
+              'px-3 py-2 text-sm flex items-center gap-1 min-h-[44px] min-w-[44px] border-l border-border/60',
+              viewMode === 'list'
+                ? 'bg-emerald-500/15 text-emerald-300'
+                : 'text-muted-foreground hover:bg-muted',
+            )}
+            aria-pressed={viewMode === 'list'}
+            title="List view"
+          >
+            <List className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={cn(
+              'px-3 py-2 text-sm flex items-center gap-1 min-h-[44px] min-w-[44px] border-l border-border/60',
+              viewMode === 'calendar'
+                ? 'bg-emerald-500/15 text-emerald-300'
+                : 'text-muted-foreground hover:bg-muted',
+            )}
+            aria-pressed={viewMode === 'calendar'}
+            title="Month calendar view"
+          >
+            <CalendarDays className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
 
       {viewMode === 'calendar' && data ? (
         <CalendarView
@@ -153,154 +139,302 @@ export function InstructorView({ user }: { user: AuthUser }) {
           assignments={data.assignments}
           myProfileId={user.profile?.id}
           readOnly
-          onSelect={(eventId, date) => {
-            const ev = data.events.find(e => e.id === eventId)
-            if (ev) setSelectedEvent(ev)
-          }}
         />
-      ) : viewMode === 'assignments' ? (
-        <div className="flex-1 overflow-y-auto" role="region" aria-label="My assignments">
-          <div className="p-4 space-y-4">
-            {/* Assignments as list */}
-            <Accordion
-              label={`My Assignments (${myAssignments.length})`}
-              labelClassName="bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-              defaultOpen
-            >
-              {myAssignments.length === 0 ? (
-                <div className="text-sm text-muted-foreground p-4 text-center">
-                  {user.profile
-                    ? 'No assignments yet. Go to the Opt In tab to express interest in events.'
-                    : 'No staff profile linked. Ask the boss to link your account.'}
-                </div>
-              ) : (
-                <div className="space-y-2 pt-2">
-                  {myAssignments.map(a => {
-                    const ev = data?.events.find((e: EventView) => e.id === a.eventId)
-                    if (!ev) return null
-                    const colors = hostColor(ev.hostColor)
-                    return (
-                      <div key={a.id} className={cn(
-                        'rounded-lg border p-3 flex items-center gap-3',
-                        a.isAlternative
-                          ? 'border-amber-500/30 border-dashed bg-amber-500/5'
-                          : 'border-border/60 bg-card/80',
-                      )}>
-                        <div className={cn('h-8 w-1 rounded-full shrink-0', colors.bar)} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium truncate">{ev.name}</p>
-                            {a.isAlternative && (
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 flex items-center gap-0.5 shrink-0">
-                                <Shield className="h-3 w-3" /> Alt
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
-                            <span className="flex items-center gap-0.5">
-                              <Calendar className="h-3 w-3" />
-                              {formatPrettyDate(a.date)}
-                            </span>
-                            <span className="flex items-center gap-0.5">
-                              <Clock className="h-3 w-3" />
-                              {formatTime(ev.startTime)}
-                            </span>
-                            {a.shirtColor && (
-                              <span className="flex items-center gap-0.5">
-                                <Shirt className="h-3 w-3" />
-                                {a.shirtColor}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </Accordion>
-
-            {/* Availability section */}
-            {user.profile && (
-              <AvailabilitySection profileId={user.profile.id} initialUnavailable={myProfile?.unavailableList ?? user.profile.unavailable?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? []} />
-            )}
-          </div>
-        </div>
-      ) : viewMode === 'events' ? (
-        <div className="flex-1 overflow-y-auto" role="region" aria-label="Events to opt in to">
-          <div className="p-4 space-y-2">
-            {optableEvents.length === 0 ? (
-              <div className="text-sm text-muted-foreground p-4 text-center">No events available for opt-in right now.</div>
-            ) : (
-              optableEvents.map(ev => {
-                const colors = hostColor(ev.hostColor)
-                const optIn = optIns?.[ev.id]
-                const isAssigned = myAssignments.some(a => a.eventId === ev.id)
-                return (
-                  <div
-                    key={ev.id}
-                    onClick={() => setSelectedEvent(ev)}
-                    className="rounded-lg border border-border/60 bg-card/80 p-3 cursor-pointer hover:border-foreground/30 transition-all"
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className={cn('h-8 w-1 rounded-full shrink-0', colors.bar)} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{ev.name}</p>
-                        <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
-                          <span className="flex items-center gap-0.5">
-                            <Calendar className="h-3 w-3" />
-                            {formatShortDate(ev.startDate)}{ev.endDate !== ev.startDate && ` – ${formatShortDate(ev.endDate)}`}
+      ) : (
+      <div className="flex-1 overflow-y-auto" role="region" aria-label="My schedule and opt-ins">
+        <div className="p-4 space-y-6">
+          {viewMode === 'carousel' ? (
+            <>
+              {/* My assignments carousel */}
+              <Carousel
+                title="My Assignments"
+                icon={<Calendar className="h-3 w-3" />}
+                count={myAssignments.length}
+                emptyMessage={user.profile
+                  ? 'You have no assignments yet. Opt in to events below to let the boss know you\'re interested.'
+                  : 'No staff profile linked. Ask the boss to link your account to a staff profile so you can be assigned.'}
+              >
+                {myAssignments.map(a => {
+                  const ev = data?.events.find((e: EventView) => e.id === a.eventId)
+                  if (!ev) return null
+                  const colors = hostColor(ev.hostColor)
+                  return (
+                    <div key={a.id} className={cn(
+                      'min-w-[300px] sm:min-w-[340px] rounded-lg border p-4 flex flex-col gap-2',
+                      a.isAlternative
+                        ? 'border-amber-500/30 border-dashed bg-amber-500/5'
+                        : 'border-border/60 bg-card/80',
+                    )}>
+                      <div className={cn('h-1 rounded-full', colors.bar)} />
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate flex-1">{ev.name}</p>
+                        {a.isAlternative && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 flex items-center gap-0.5 shrink-0">
+                            <Shield className="h-2.5 w-2.5" /> Alt
                           </span>
-                          <span className="flex items-center gap-0.5">
-                            <Clock className="h-3 w-3" />
-                            {formatTime(ev.startTime)}
-                          </span>
-                          {ev.location && (
-                            <span className="flex items-center gap-0.5 truncate">
-                              <MapPin className="h-3 w-3" />
-                              {ev.location}
-                            </span>
-                          )}
-                        </div>
-                        {isAssigned ? (
-                          <div className="mt-2 flex items-center gap-1.5 text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-1">
-                            <Check className="h-3.5 w-3.5" />
-                            You&apos;re assigned to this event
-                          </div>
-                        ) : (
-                          <div className="flex gap-1.5 mt-2" onClick={e => e.stopPropagation()}>
-                            <OptInButton
-                              active={optIn?.status === 'interested'}
-                              color="active:bg-teal-500/20 bg-teal-500/10 text-teal-300 border-teal-500/40"
-                              onClick={(e) => { e.stopPropagation(); optInMutation.mutate({ eventId: ev.id, status: 'interested' }) }}
-                              icon={<Star className="h-3.5 w-3.5" />}
-                              label="Interested"
-                            />
-                            <OptInButton
-                              active={optIn?.status === 'available'}
-                              color="active:bg-emerald-500/20 bg-emerald-500/10 text-emerald-300 border-emerald-500/40"
-                              onClick={(e) => { e.stopPropagation(); optInMutation.mutate({ eventId: ev.id, status: 'available' }) }}
-                              icon={<Check className="h-3.5 w-3.5" />}
-                              label="Available"
-                            />
-                            <OptInButton
-                              active={optIn?.status === 'unavailable'}
-                              color="active:bg-rose-500/20 bg-rose-500/10 text-rose-300 border-rose-500/40"
-                              onClick={(e) => { e.stopPropagation(); optInMutation.mutate({ eventId: ev.id, status: 'unavailable' }) }}
-                              icon={<X className="h-3.5 w-3.5" />}
-                              label="Can&apos;t"
-                            />
-                          </div>
                         )}
                       </div>
+                      <div className="text-[10px] text-muted-foreground flex items-center gap-2 flex-wrap">
+                        <span className="flex items-center gap-0.5">
+                          <Calendar className="h-2.5 w-2.5" />
+                          {formatPrettyDate(a.date)}
+                        </span>
+                        <span className="flex items-center gap-0.5">
+                          <Clock className="h-2.5 w-2.5" />
+                          {formatTime(ev.startTime)}
+                        </span>
+                      </div>
+                      {ev.location && (
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-0.5 truncate">
+                          <MapPin className="h-2.5 w-2.5" />
+                          {ev.location}
+                        </div>
+                      )}
+                      {a.shirtColor && (
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Shirt className="h-2.5 w-2.5" />
+                          Shirt: <span className="text-foreground font-medium">{a.shirtColor}</span>
+                        </div>
+                      )}
                     </div>
+                  )
+                })}
+              </Carousel>
+
+              {/* Opt-in events carousel */}
+              <Carousel
+                title="Events You Can Opt In To"
+                icon={<Star className="h-3 w-3" />}
+                count={optableEvents.length}
+                emptyMessage="No events available for opt-in right now."
+              >
+                {optableEvents.map(ev => {
+                  const colors = hostColor(ev.hostColor)
+                  const optIn = optIns?.[ev.id]
+                  const isAssigned = myAssignments.some(a => a.eventId === ev.id)
+                  return (
+                    <div
+                      key={ev.id}
+                      onClick={() => setSelectedEvent(ev)}
+                      className="min-w-[300px] sm:min-w-[340px] rounded-lg border border-border/60 bg-card/80 p-4 flex flex-col gap-2 cursor-pointer hover:border-foreground/30 hover:shadow-md transition-all"
+                    >
+                      <div className={cn('h-1 rounded-full', colors.bar)} />
+                      <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{ev.name}</p>
+                          <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                            <span className="flex items-center gap-0.5">
+                              <Calendar className="h-2.5 w-2.5" />
+                              {formatShortDate(ev.startDate)}{ev.endDate !== ev.startDate && ` – ${formatShortDate(ev.endDate)}`}
+                            </span>
+                            <span className="flex items-center gap-0.5">
+                              <Clock className="h-2.5 w-2.5" />
+                              {formatTime(ev.startTime)}
+                            </span>
+                            <span className="flex items-center gap-0.5">
+                              <Users className="h-2.5 w-2.5" />
+                              {ev.requiredInstructors}
+                            </span>
+                            <span className={cn('px-1.5 py-0.5 rounded border', EVENT_STATUS_COLOR[ev.status] ?? EVENT_STATUS_COLOR.Confirmed)}>
+                              {ev.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {ev.location && (
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                          <MapPin className="h-2.5 w-2.5" />
+                          {ev.location}
+                        </div>
+                      )}
+                      {ev.description && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-2">{ev.description}</p>
+                      )}
+
+                      {isAssigned ? (
+                        <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-1">
+                          <Check className="h-3 w-3" />
+                          You&apos;re assigned to this event
+                        </div>
+                      ) : (
+                        <div className="flex gap-1.5 mt-1">
+                          <OptInButton
+                            active={optIn?.status === 'interested'}
+                            color="active:bg-teal-500/20 bg-teal-500/10 text-teal-300 border-teal-500/40"
+                            onClick={(e) => { e.stopPropagation(); optInMutation.mutate({ eventId: ev.id, status: 'interested' }) }}
+                            icon={<Star className="h-3 w-3" />}
+                            label="Interested"
+                          />
+                          <OptInButton
+                            active={optIn?.status === 'available'}
+                            color="active:bg-emerald-500/20 bg-emerald-500/10 text-emerald-300 border-emerald-500/40"
+                            onClick={(e) => { e.stopPropagation(); optInMutation.mutate({ eventId: ev.id, status: 'available' }) }}
+                            icon={<Check className="h-3 w-3" />}
+                            label="Available"
+                          />
+                          <OptInButton
+                            active={optIn?.status === 'unavailable'}
+                            color="active:bg-rose-500/20 bg-rose-500/10 text-rose-300 border-rose-500/40"
+                            onClick={(e) => { e.stopPropagation(); optInMutation.mutate({ eventId: ev.id, status: 'unavailable' }) }}
+                            icon={<X className="h-3 w-3" />}
+                            label="Can&apos;t"
+                          />
+                        </div>
+                      )}
+                      <p className="text-[9px] text-muted-foreground/50 text-center pt-1">Tap for details</p>
+                    </div>
+                  )
+                })}
+              </Carousel>
+            </>
+          ) : (
+            /* List view (accordion) */
+            <>
+              <Accordion
+                label={`My Assignments (${myAssignments.length})`}
+                labelClassName="bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                defaultOpen
+              >
+                {myAssignments.length === 0 ? (
+                  <div className="text-xs text-muted-foreground p-3 text-center">
+                    {user.profile
+                      ? 'No assignments yet. Opt in to events below.'
+                      : 'No staff profile linked.'}
                   </div>
-                )
-              })
-            )}
-          </div>
+                ) : (
+                  <div className="space-y-2 pt-2">
+                    {myAssignments.map(a => {
+                      const ev = data?.events.find((e: EventView) => e.id === a.eventId)
+                      if (!ev) return null
+                      const colors = hostColor(ev.hostColor)
+                      return (
+                        <div key={a.id} className={cn(
+                          'rounded-lg border p-3 flex items-center gap-3',
+                          a.isAlternative
+                            ? 'border-amber-500/30 border-dashed bg-amber-500/5'
+                            : 'border-border/60 bg-card/80',
+                        )}>
+                          <div className={cn('h-8 w-1 rounded-full shrink-0', colors.bar)} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium truncate">{ev.name}</p>
+                              {a.isAlternative && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 flex items-center gap-0.5 shrink-0">
+                                  <Shield className="h-2.5 w-2.5" /> Alt
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                              <span className="flex items-center gap-0.5">
+                                <Calendar className="h-2.5 w-2.5" />
+                                {formatPrettyDate(a.date)}
+                              </span>
+                              <span className="flex items-center gap-0.5">
+                                <Clock className="h-2.5 w-2.5" />
+                                {formatTime(ev.startTime)}
+                              </span>
+                              {a.shirtColor && (
+                                <span className="flex items-center gap-0.5">
+                                  <Shirt className="h-2.5 w-2.5" />
+                                  {a.shirtColor}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </Accordion>
+
+              <Accordion
+                label={`Events You Can Opt In To (${optableEvents.length})`}
+                labelClassName="bg-teal-500/15 text-teal-300 border-teal-500/30"
+                defaultOpen
+              >
+                {optableEvents.length === 0 ? (
+                  <div className="text-xs text-muted-foreground p-3 text-center">No events available.</div>
+                ) : (
+                  <div className="space-y-2 pt-2">
+                    {optableEvents.map(ev => {
+                      const colors = hostColor(ev.hostColor)
+                      const optIn = optIns?.[ev.id]
+                      const isAssigned = myAssignments.some(a => a.eventId === ev.id)
+                      return (
+                        <div
+                          key={ev.id}
+                          onClick={() => setSelectedEvent(ev)}
+                          className="rounded-lg border border-border/60 bg-card/80 p-3 cursor-pointer hover:border-foreground/30 transition-all"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className={cn('h-8 w-1 rounded-full shrink-0', colors.bar)} />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">{ev.name}</p>
+                              <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                                <span className="flex items-center gap-0.5">
+                                  <Calendar className="h-2.5 w-2.5" />
+                                  {formatShortDate(ev.startDate)}{ev.endDate !== ev.startDate && ` – ${formatShortDate(ev.endDate)}`}
+                                </span>
+                                <span className="flex items-center gap-0.5">
+                                  <Clock className="h-2.5 w-2.5" />
+                                  {formatTime(ev.startTime)}
+                                </span>
+                                {ev.location && (
+                                  <span className="flex items-center gap-0.5 truncate">
+                                    <MapPin className="h-2.5 w-2.5" />
+                                    {ev.location}
+                                  </span>
+                                )}
+                              </div>
+                              {isAssigned ? (
+                                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-1">
+                                  <Check className="h-3 w-3" />
+                                  You&apos;re assigned to this event
+                                </div>
+                              ) : (
+                                <div className="flex gap-1.5 mt-2" onClick={e => e.stopPropagation()}>
+                                  <OptInButton
+                                    active={optIn?.status === 'interested'}
+                                    color="active:bg-teal-500/20 bg-teal-500/10 text-teal-300 border-teal-500/40"
+                                    onClick={(e) => { e.stopPropagation(); optInMutation.mutate({ eventId: ev.id, status: 'interested' }) }}
+                                    icon={<Star className="h-3 w-3" />}
+                                    label="Interested"
+                                  />
+                                  <OptInButton
+                                    active={optIn?.status === 'available'}
+                                    color="active:bg-emerald-500/20 bg-emerald-500/10 text-emerald-300 border-emerald-500/40"
+                                    onClick={(e) => { e.stopPropagation(); optInMutation.mutate({ eventId: ev.id, status: 'available' }) }}
+                                    icon={<Check className="h-3 w-3" />}
+                                    label="Available"
+                                  />
+                                  <OptInButton
+                                    active={optIn?.status === 'unavailable'}
+                                    color="active:bg-rose-500/20 bg-rose-500/10 text-rose-300 border-rose-500/40"
+                                    onClick={(e) => { e.stopPropagation(); optInMutation.mutate({ eventId: ev.id, status: 'unavailable' }) }}
+                                    icon={<X className="h-3 w-3" />}
+                                    label="Can&apos;t"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </Accordion>
+            </>
+          )}
+
+          {/* Availability section */}
+          {user.profile && (
+            <AvailabilitySection profileId={user.profile.id} initialUnavailable={myProfile?.unavailableList ?? user.profile.unavailable?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? []} />
+          )}
         </div>
-      ) : null}
+      </div>
+      )}
 
       {/* Event details drawer */}
       {selectedEvent && (
@@ -313,6 +447,79 @@ export function InstructorView({ user }: { user: AuthUser }) {
         />
       )}
     </div>
+  )
+}
+
+// ---------- Carousel component ----------
+
+function Carousel({ title, icon, count, emptyMessage, children }: {
+  title: string
+  icon: React.ReactNode
+  count: number
+  emptyMessage: string
+  children: React.ReactNode
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const updateScrollButtons = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 5)
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 5)
+  }, [])
+
+  const scroll = (dir: 'left' | 'right') => {
+    const el = scrollRef.current
+    if (!el) return
+    const amount = el.clientWidth * 0.8
+    el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' })
+  }
+
+  return (
+    <section aria-label={title}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+          {icon}
+          {title} ({count})
+        </h3>
+        {count > 0 && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => scroll('left')}
+              disabled={!canScrollLeft}
+              className="p-1 rounded-md border border-border/60 text-muted-foreground disabled:opacity-30 hover:bg-muted min-w-[28px] min-h-[28px] flex items-center justify-center"
+              aria-label={`Scroll ${title} left`}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => scroll('right')}
+              disabled={!canScrollRight}
+              className="p-1 rounded-md border border-border/60 text-muted-foreground disabled:opacity-30 hover:bg-muted min-w-[28px] min-h-[28px] flex items-center justify-center"
+              aria-label={`Scroll ${title} right`}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+      {count === 0 ? (
+        <div className="text-xs text-muted-foreground p-4 border border-dashed border-border/60 rounded-md text-center">
+          {emptyMessage}
+        </div>
+      ) : (
+        <div
+          ref={scrollRef}
+          onScroll={updateScrollButtons}
+          className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
+          style={{ scrollbarWidth: 'thin' }}
+        >
+          {children}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -801,35 +1008,6 @@ export function ClaimInviteForm({ token, onClaimed }: { token: string; onClaimed
           )}
         </div>
       </div>
-    </div>
-  )
-}
-
-// ---------- Simple Carousel (5 items per group) ----------
-
-function CarouselGroup({ items, itemsPerGroup = 5 }: { items: React.ReactNode[], itemsPerGroup?: number }) {
-  // Split items into groups of itemsPerGroup
-  const groups: React.ReactNode[][] = []
-  for (let i = 0; i < items.length; i += itemsPerGroup) {
-    groups.push(items.slice(i, i + itemsPerGroup))
-  }
-  if (groups.length === 0) return null
-
-  return (
-    <div className="space-y-4">
-      {groups.map((group, gi) => (
-        <div
-          key={gi}
-          className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
-          style={{ scrollbarWidth: 'thin' }}
-        >
-          {group.map((item, ii) => (
-            <div key={ii} className="min-w-[280px] sm:min-w-[300px] snap-start shrink-0">
-              {item}
-            </div>
-          ))}
-        </div>
-      ))}
     </div>
   )
 }
