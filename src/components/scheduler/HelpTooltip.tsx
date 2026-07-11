@@ -16,7 +16,7 @@ export function HelpTooltip({ text, className }: Props) {
       <button
         onClick={() => setShow(s => !s)}
         className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-        aria-label="Help"
+        aria-label="Help — click to toggle instructions"
         aria-expanded={show}
       >
         <HelpCircle className="h-5 w-5" />
