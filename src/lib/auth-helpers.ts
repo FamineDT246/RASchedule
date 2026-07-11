@@ -55,14 +55,3 @@ export async function requireAdmin(req: NextRequest) {
   }
   return null
 }
-
-/**
- * Require any authenticated user (admin or instructor).
- */
-export async function requireAuth(req: NextRequest) {
-  const user = await getAuthUser(req)
-  if (!user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
-  return null
-}

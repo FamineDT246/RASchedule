@@ -3,10 +3,10 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  roleColor, formatShortDate, type ScheduleData,
+  roleColor, type ScheduleData,
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
-import { Users, Calendar, Clock, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Users, Calendar, TrendingUp, AlertTriangle } from 'lucide-react'
 import { Accordion } from './Accordion'
 import { HelpTooltip } from './HelpTooltip'
 

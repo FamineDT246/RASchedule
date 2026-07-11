@@ -7,9 +7,6 @@ import {
   formatTime,
   formatPrettyDate,
   formatShortDate,
-  parseSkills,
-  parseDates,
-  eventOnDate,
   addDaysISO,
   type EventView,
   type AssignmentView,
@@ -18,7 +15,7 @@ import {
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import {
-  AlertTriangle, Users, CalendarX, Clock, ShieldAlert, CheckCircle2, X, ArrowRight, Wrench,
+  Users, CalendarX, Clock, ShieldAlert, CheckCircle2, X, ArrowRight, Wrench,
 } from 'lucide-react'
 import { Accordion } from './Accordion'
 import { HelpTooltip } from './HelpTooltip'

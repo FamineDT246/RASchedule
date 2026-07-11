@@ -9,7 +9,7 @@ import {
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import {
-  Plus, Pencil, Trash2, X, Calendar, Clock, Users, MapPin, Tag, Save, AlertCircle,
+  Plus, Pencil, Trash2, X, Calendar, Clock, Users, Save, AlertCircle,
 } from 'lucide-react'
 import { Accordion } from './Accordion'
 import { HelpTooltip } from './HelpTooltip'

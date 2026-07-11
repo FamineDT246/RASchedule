@@ -9,13 +9,12 @@ import {
   eventOnDate,
   todayInBarbados,
   isPastDate,
-  addDaysISO,
   type EventView,
   type AssignmentView,
 } from '@/lib/scheduler-types'
 import { DroppableEventCard } from './DroppableEventCard'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, Download, FileText, Printer } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, FileText} from 'lucide-react'
 import { exportCSV } from '@/lib/export-utils'
 import { HelpTooltip } from './HelpTooltip'
 

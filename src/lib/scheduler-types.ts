@@ -232,22 +232,6 @@ export function isToday(iso: string): boolean {
   return iso === todayInBarbados()
 }
 
-// Is this event fully in the past (endDate is before today)?
-export function isEventPast(endDate: string): boolean {
-  return endDate < todayInBarbados()
-}
-
-export function isoWeekdaysInRange(fromISO: string, toISO: string): string[] {
-  const out: string[] = []
-  const d = new Date(`${fromISO}T00:00:00.000Z`)
-  const end = new Date(`${toISO}T00:00:00.000Z`)
-  while (d <= end) {
-    out.push(d.toISOString().slice(0, 10))
-    d.setUTCDate(d.getUTCDate() + 1)
-  }
-  return out
-}
-
 export function startOfWeekISO(iso: string): string {
   // Monday-based week start
   const d = new Date(`${iso}T00:00:00.000Z`)

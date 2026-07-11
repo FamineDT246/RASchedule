@@ -3,10 +3,10 @@
 import { useState, useMemo } from 'react'
 import {
   hostColor, formatTime, eventOnDate, todayInBarbados, isPastDate,
-  addDaysISO, type EventView, type AssignmentView, type ProfileView,
+  type EventView, type AssignmentView, type ProfileView,
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, Users, MapPin, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Users} from 'lucide-react'
 import { HelpTooltip } from './HelpTooltip'
 
 type Props = {

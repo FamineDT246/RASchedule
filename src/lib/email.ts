@@ -33,7 +33,7 @@ function escapeHtml(s: string): string {
 
 export async function sendEmail(to: string, subject: string, html: string) {
   if (!RESEND_API_KEY) {
-    console.log('[email] Skipped (no RESEND_API_KEY):', subject, '→', to)
+    // Dev mode — no API key configured, skip silently
     return false
   }
   try {
@@ -144,7 +144,6 @@ export async function notifyUser(opts: {
     args: [crypto.randomUUID(), userId, type, title, body ?? null, eventId ?? null, assignmentId ?? null],
   }).catch(() => {
     // Notification table might not exist yet (pre-migration). Silently skip.
-    console.log('[notify] Notification table missing — skipping in-app notification')
   })
 
   // 2. Queue the email if user has email notifications on (or alwaysEmail=true)
@@ -168,7 +167,7 @@ export async function notifyUser(opts: {
       urgency,
     ],
   }).catch(() => {
-    console.log('[notify] EmailQueue table missing — skipping email queue')
+    // EmailQueue table might not exist yet (pre-migration). Silently skip.
   })
 
   // 3. If urgency is 'instant', send immediately and mark the row sent by id

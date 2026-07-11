@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getAuthUser } from '@/lib/auth-helpers'
 
 // GET /api/ical?token=<inviteToken>
 // Returns an iCal (.ics) feed of the user's assignments.

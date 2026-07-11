@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Bell, Check, X } from 'lucide-react'
+import { Bell, Check} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatShortDate } from '@/lib/scheduler-types'
 

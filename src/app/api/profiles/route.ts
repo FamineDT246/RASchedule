@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from "@/lib/auth-helpers"
 import { db } from '@/lib/db'
-import { getAuthUser } from '@/lib/auth-helpers'
 
 function parseList(s: string | null | undefined): string[] {
   if (!s) return []

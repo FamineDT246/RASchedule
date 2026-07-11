@@ -10,7 +10,7 @@ import {
   type AssignmentView,
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
-import { MapPin, Clock, Users, AlertTriangle, Shield, Star, Wrench } from 'lucide-react'
+import { MapPin, Clock, Users, AlertTriangle, Shield, Star} from 'lucide-react'
 
 type Props = {
   event: EventView

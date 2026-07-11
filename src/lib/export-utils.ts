@@ -1,13 +1,8 @@
 'use client'
 
 import {
-  hostColor,
-  formatTime,
-  formatPrettyDate,
-  formatShortDate,
   eventOnDate,
   addDaysISO,
-  SHIRT_COLOR_SWATCH,
   type EventView,
   type AssignmentView,
 } from '@/lib/scheduler-types'
