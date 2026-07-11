@@ -11,18 +11,24 @@ type BeforeInstallPromptEvent = Event & {
 /**
  * "Install app" menu item for the account dropdown.
  *
- * On Android Chrome: uses the deferred beforeinstallprompt event (the same
- * one the auto-prompt uses, but triggered manually from the menu).
+ * Always shows a bottom-sheet with install instructions when tapped, so the
+ * button always responds (no dead taps). The instructions are tailored to
+ * the detected platform:
  *
- * On iOS Safari: there's no beforeinstallprompt event, so we show a small
- * instructions popover instead (Share → Add to Home Screen).
+ * - Android Chrome/Samsung (with beforeinstallprompt): tries the native
+ *   install prompt first; if that fails, falls back to manual instructions
+ * - iOS Safari: manual Share → Add to Home Screen instructions
+ * - Other: generic "Add to Home Screen" instructions
  *
- * Only renders on mobile (sm:hidden) — desktop browsers reliably fire
- * the auto-prompt, so the menu item isn't needed there.
+ * Only renders on mobile (sm:hidden) and only when not already in
+ * standalone mode (i.e. PWA not yet installed).
+ *
+ * NOTE: For the native Android install prompt to fire, the app needs a
+ * service worker registered. See /sw.js (registered in layout.tsx).
  */
 export function InstallAppMenuItem({ onAfterAction }: { onAfterAction?: () => void }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [showIosInstructions, setShowIosInstructions] = useState(false)
+  const [showInstructions, setShowInstructions] = useState(false)
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -33,11 +39,12 @@ export function InstallAppMenuItem({ onAfterAction }: { onAfterAction?: () => vo
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  // Detect iOS (Safari can't auto-prompt)
+  // Detect platform
   const isIOS = typeof navigator !== 'undefined' && (
     /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   )
+  const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
 
   // Detect if already installed (standalone mode)
   const isStandalone = typeof window !== 'undefined' &&
@@ -47,20 +54,27 @@ export function InstallAppMenuItem({ onAfterAction }: { onAfterAction?: () => vo
   // Don't render if already installed
   if (isStandalone) return null
 
-  const handleClick = () => {
+  const handleClick = async () => {
+    // Close the account menu first
+    onAfterAction?.()
+
+    // If we have a deferred prompt (Android Chrome with SW), try the native prompt
     if (deferredPrompt) {
-      // Android Chrome — trigger the native install prompt
-      deferredPrompt.prompt()
-      deferredPrompt.userChoice.then(() => {
-        setDeferredPrompt(null)
-        onAfterAction?.()
-      })
-    } else if (isIOS) {
-      // iOS — show instructions popover
-      setShowIosInstructions(true)
+      try {
+        await deferredPrompt.prompt()
+        const choice = await deferredPrompt.userChoice
+        if (choice.outcome === 'accepted') {
+          setDeferredPrompt(null)
+          return // installed — don't show instructions
+        }
+        // dismissed — fall through to show manual instructions
+      } catch {
+        // prompt failed — fall through to manual instructions
+      }
     }
-    // If not iOS and no deferredPrompt (rare), do nothing — the auto-prompt
-    // should have fired if the browser supports it
+
+    // Always show instructions as fallback / for iOS
+    setShowInstructions(true)
   }
 
   return (
@@ -74,11 +88,11 @@ export function InstallAppMenuItem({ onAfterAction }: { onAfterAction?: () => vo
         Install app
       </button>
 
-      {/* iOS instructions popover */}
-      {showIosInstructions && (
+      {/* Instructions popover — always available as fallback */}
+      {showInstructions && (
         <div
-          className="sm:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0"
-          onClick={() => setShowIosInstructions(false)}
+          className="sm:hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0"
+          onClick={() => setShowInstructions(false)}
         >
           <div
             className="bg-card border border-border/60 rounded-t-lg w-full max-w-md p-4 pb-6"
@@ -90,27 +104,56 @@ export function InstallAppMenuItem({ onAfterAction }: { onAfterAction?: () => vo
                 <p className="text-[11px] text-muted-foreground">Add to your home screen</p>
               </div>
               <button
-                onClick={() => setShowIosInstructions(false)}
+                onClick={() => setShowInstructions(false)}
                 className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <ol className="space-y-2 text-xs text-foreground/90">
-              <li className="flex gap-2">
-                <span className="font-semibold text-emerald-300 shrink-0">1.</span>
-                <span>Tap the <strong>Share</strong> button in Safari's toolbar (square with an up arrow).</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="font-semibold text-emerald-300 shrink-0">2.</span>
-                <span>Scroll down and tap <strong>Add to Home Screen</strong>.</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="font-semibold text-emerald-300 shrink-0">3.</span>
-                <span>Tap <strong>Add</strong> — the RA Syncbot icon will appear on your home screen.</span>
-              </li>
-            </ol>
+
+            {isIOS ? (
+              <ol className="space-y-3 text-xs text-foreground/90">
+                <li className="flex gap-2">
+                  <span className="font-semibold text-emerald-300 shrink-0">1.</span>
+                  <span>Tap the <strong>Share</strong> button in Safari's toolbar (square with an up-arrow).</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold text-emerald-300 shrink-0">2.</span>
+                  <span>Scroll down and tap <strong>Add to Home Screen</strong>.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold text-emerald-300 shrink-0">3.</span>
+                  <span>Tap <strong>Add</strong> — the RA Syncbot icon will appear on your home screen.</span>
+                </li>
+              </ol>
+            ) : isAndroid ? (
+              <ol className="space-y-3 text-xs text-foreground/90">
+                <li className="flex gap-2">
+                  <span className="font-semibold text-emerald-300 shrink-0">1.</span>
+                  <span>Tap the <strong>three-dot menu</strong> (⋮) in the top-right corner of your browser.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold text-emerald-300 shrink-0">2.</span>
+                  <span>Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold text-emerald-300 shrink-0">3.</span>
+                  <span>Tap <strong>Install</strong> — the RA Syncbot icon will appear on your home screen.</span>
+                </li>
+              </ol>
+            ) : (
+              <ol className="space-y-3 text-xs text-foreground/90">
+                <li className="flex gap-2">
+                  <span className="font-semibold text-emerald-300 shrink-0">1.</span>
+                  <span>Open your browser menu and look for <strong>Install app</strong> or <strong>Add to Home screen</strong>.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold text-emerald-300 shrink-0">2.</span>
+                  <span>Confirm — the RA Syncbot icon will appear on your home screen.</span>
+                </li>
+              </ol>
+            )}
           </div>
         </div>
       )}
