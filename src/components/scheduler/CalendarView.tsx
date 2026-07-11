@@ -182,9 +182,10 @@ export function CalendarView({ events, assignments, profiles, myProfileId, readO
                   return (
                     <button
                       key={ev.id}
-                      onClick={() => onSelect?.(ev.id, dateISO)}
+                      onClick={() => !readOnly && onSelect?.(ev.id, dateISO)}
                       className={cn(
-                        'text-left rounded px-1 py-0.5 text-[9px] sm:text-[10px] leading-tight truncate transition-all border cursor-pointer hover:scale-[1.02] hover:shadow-sm',
+                        'text-left rounded px-1 py-0.5 text-[9px] sm:text-[10px] leading-tight truncate transition-all border',
+                        !readOnly && 'cursor-pointer hover:scale-[1.02] hover:shadow-sm',
                         isPast ? 'opacity-60' : '',
                         myAssignment ? 'ring-1 ring-emerald-400' : '',
                         colors.chip,

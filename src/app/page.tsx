@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useSyncExternalStore } from 'react'
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
@@ -56,19 +57,25 @@ export default function Home() {
   const { data: meData, refetch: refetchMe } = useQuery({ queryKey: ['me'], queryFn: fetchMe })
   const user = meData?.user ?? null
 
-  // Token claim flow — read on client only to avoid hydration mismatch
-  const [claimToken, setClaimToken] = useState<string | null>(null)
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true)
-    if (typeof window !== 'undefined') {
+  // Token claim flow — read on client only to avoid hydration mismatch.
+  // useSyncExternalStore returns empty string on server, real value on client.
+  const [tokenOverride, setTokenOverride] = useState<string | null>(null)
+  const clientToken = useSyncExternalStore(
+    () => () => {},
+    () => {
+      if (typeof window === 'undefined') return ''
+      if (tokenOverride !== null) return tokenOverride
       const url = new URL(window.location.href)
-      const t = url.searchParams.get('token')
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (t) setClaimToken(t)
-    }
-  }, [])
+      return url.searchParams.get('token') ?? ''
+    },
+    () => '',
+  )
+  const claimToken = clientToken || null
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  )
 
   // Active tab
   const [tab, setTab] = useState<Tab>('scheduler')
@@ -88,11 +95,15 @@ export default function Home() {
   // Push a dummy history state on mount; when user presses back, we intercept it
   // and show a toast instead of navigating away.
   useEffect(() => {
+    // Only run in browser
     if (typeof window === 'undefined') return
+    // Push a state so there's something to go "back" to
     window.history.pushState({ app: true }, '', window.location.href)
 
     const handlePopState = (e: PopStateEvent) => {
+      // User pressed back — re-push the state so they stay in the app
       window.history.pushState({ app: true }, '', window.location.href)
+      // Show a toast telling them to press back again to leave
       toast('Press back again to exit', {
         description: 'Use the tabs to navigate within the app.',
         duration: 3000,
@@ -102,18 +113,6 @@ export default function Home() {
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
-
-  // Close drawers/modals with Esc key
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      if (selected) { setSelected(null); return }
-      if (showChangePassword) { setShowChangePassword(false); return }
-      if (tapSelectedProfileId) { setTapSelectedProfileId(null); return }
-    }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
-  }, [selected, showChangePassword, tapSelectedProfileId])
 
   // Print handler — renders PrintLayout to a portal, triggers window.print(), then cleans up
   const handlePrint = useCallback(() => {
@@ -404,7 +403,7 @@ export default function Home() {
         <ClaimInviteForm
           token={claimToken}
           onClaimed={() => {
-            setClaimToken('')
+            setTokenOverride('')
             if (typeof window !== 'undefined') {
               const url = new URL(window.location.href)
               url.searchParams.delete('token')
