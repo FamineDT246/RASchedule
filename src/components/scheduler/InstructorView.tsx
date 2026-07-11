@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   hostColor, formatTime, formatPrettyDate, formatShortDate,
-  EVENT_STATUS_COLOR, type EventView, type AssignmentView, type AuthUser,
+  EVENT_STATUS_COLOR, todayInBarbados,
+  type EventView, type AssignmentView, type AuthUser,
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import {
@@ -104,6 +105,15 @@ export function InstructorView({ user }: { user: AuthUser }) {
       .sort((a, b) => a.date.localeCompare(b.date))
   }, [data, myProfileId])
 
+  // Split into upcoming and past (based on Barbados timezone)
+  const { upcomingAssignments, pastAssignments } = useMemo(() => {
+    const today = todayInBarbados()
+    return {
+      upcomingAssignments: myAssignments.filter(a => a.date >= today),
+      pastAssignments: myAssignments.filter(a => a.date < today),
+    }
+  }, [myAssignments])
+
   // Available events to opt in to (Confirmed + Tentative, exclude Draft/Cancelled)
   const optableEvents = useMemo(() => {
     if (!data) return []
@@ -185,109 +195,56 @@ export function InstructorView({ user }: { user: AuthUser }) {
       ) : viewMode === 'assignments' ? (
         <div className="flex-1 overflow-y-auto" role="region" aria-label="My assignments">
           <div className="p-3 sm:p-4 space-y-4">
+            {/* Upcoming assignments */}
             <Accordion
-              label={`My Assignments (${myAssignments.length})`}
+              label={`Upcoming Assignments (${upcomingAssignments.length})`}
               labelClassName="bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
               defaultOpen
             >
-              {myAssignments.length === 0 ? (
+              {upcomingAssignments.length === 0 ? (
                 <div className="text-sm text-muted-foreground p-4 text-center">
                   {user.profile
-                    ? 'No assignments yet. Go to the Opt In tab to express interest in events.'
+                    ? 'No upcoming assignments. Go to the Opt In tab to express interest in events.'
                     : 'No staff profile linked. Ask the boss to link your account.'}
                 </div>
               ) : (
                 <div className="space-y-2 pt-2">
-                  {myAssignments.map(a => {
-                    const ev = data?.events.find((e: EventView) => e.id === a.eventId)
-                    if (!ev) return null
-                    const colors = hostColor(ev.hostColor)
-                    const acked = a.ackStatus === 'confirmed'
-                    const declined = a.ackStatus === 'declined'
-                    return (
-                      <div
-                        key={a.id}
-                        className={cn(
-                          'rounded-lg border p-3 flex items-center gap-3 transition-all',
-                          a.isAlternative
-                            ? 'border-amber-500/30 border-dashed bg-amber-500/5'
-                            : 'border-border/60 bg-card/80',
-                          acked && 'border-emerald-500/40 bg-emerald-500/5',
-                          declined && 'border-rose-500/40 bg-rose-500/5',
-                        )}
-                      >
-                        <button
-                          onClick={() => setSelectedEvent(ev)}
-                          className="flex items-center gap-3 flex-1 min-w-0 text-left"
-                          aria-label={`View details for ${ev.name}`}
-                        >
-                          <div className={cn('h-8 w-1 rounded-full shrink-0', colors.bar)} />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium truncate">{ev.name}</p>
-                              {a.isAlternative && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 flex items-center gap-0.5 shrink-0">
-                                  <Shield className="h-3 w-3" /> Alt
-                                </span>
-                              )}
-                              {acked && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 flex items-center gap-0.5 shrink-0">
-                                  <Check className="h-2.5 w-2.5" /> Confirmed
-                                </span>
-                              )}
-                              {declined && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 flex items-center gap-0.5 shrink-0">
-                                  <X className="h-2.5 w-2.5" /> Declined
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
-                              <span className="flex items-center gap-0.5">
-                                <Calendar className="h-3 w-3" />
-                                {formatPrettyDate(a.date)}
-                              </span>
-                              <span className="flex items-center gap-0.5">
-                                <Clock className="h-3 w-3" />
-                                {formatTime(ev.startTime)}
-                              </span>
-                              {a.shirtColor && (
-                                <span className="flex items-center gap-0.5">
-                                  <Shirt className="h-3 w-3" />
-                                  {a.shirtColor}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                        {/* Acknowledge buttons (hidden if already acked) */}
-                        {!acked && !declined && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); ackMutation.mutate({ id: a.id, ackStatus: 'confirmed' }) }}
-                              disabled={ackMutation.isPending}
-                              className="p-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 min-h-[36px] min-w-[36px] flex items-center justify-center"
-                              aria-label="Confirm assignment — I'll be there"
-                              title="Confirm — I'll be there"
-                            >
-                              <Check className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); ackMutation.mutate({ id: a.id, ackStatus: 'declined' }) }}
-                              disabled={ackMutation.isPending}
-                              className="p-2 rounded-md border border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 min-h-[36px] min-w-[36px] flex items-center justify-center"
-                              aria-label="Decline assignment — I can't make it"
-                              title="Decline — I can't make it"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                  {upcomingAssignments.map(a => (
+                    <AssignmentCard
+                      key={a.id}
+                      assignment={a}
+                      event={data?.events.find((e: EventView) => e.id === a.eventId)}
+                      onView={setSelectedEvent}
+                      onAck={(ackStatus) => ackMutation.mutate({ id: a.id, ackStatus })}
+                      ackPending={ackMutation.isPending}
+                    />
+                  ))}
                 </div>
               )}
             </Accordion>
+
+            {/* Past assignments */}
+            {pastAssignments.length > 0 && (
+              <Accordion
+                label={`Past Assignments (${pastAssignments.length})`}
+                labelClassName="bg-zinc-500/15 text-zinc-300 border-zinc-500/30"
+                defaultOpen={false}
+              >
+                <div className="space-y-2 pt-2">
+                  {pastAssignments.map(a => (
+                    <AssignmentCard
+                      key={a.id}
+                      assignment={a}
+                      event={data?.events.find((e: EventView) => e.id === a.eventId)}
+                      onView={setSelectedEvent}
+                      onAck={(ackStatus) => ackMutation.mutate({ id: a.id, ackStatus })}
+                      ackPending={ackMutation.isPending}
+                      isPast
+                    />
+                  ))}
+                </div>
+              </Accordion>
+            )}
 
             {/* Availability section */}
             {user.profile && (
@@ -390,6 +347,102 @@ export function InstructorView({ user }: { user: AuthUser }) {
           onClose={() => setSelectedEvent(null)}
           myProfileId={user.profile?.id}
         />
+      )}
+    </div>
+  )
+}
+
+// ---------- Assignment card (used in both upcoming + past accordions) ----------
+
+function AssignmentCard({ assignment: a, event: ev, onView, onAck, ackPending, isPast }: {
+  assignment: AssignmentView
+  event: EventView | undefined
+  onView: (event: EventView) => void
+  onAck: (ackStatus: 'confirmed' | 'declined') => void
+  ackPending: boolean
+  isPast?: boolean
+}) {
+  if (!ev) return null
+  const colors = hostColor(ev.hostColor)
+  const acked = a.ackStatus === 'confirmed'
+  const declined = a.ackStatus === 'declined'
+  return (
+    <div
+      className={cn(
+        'rounded-lg border p-3 flex items-center gap-3 transition-all',
+        a.isAlternative
+          ? 'border-amber-500/30 border-dashed bg-amber-500/5'
+          : 'border-border/60 bg-card/80',
+        isPast && 'opacity-70',
+        acked && 'border-emerald-500/40 bg-emerald-500/5',
+        declined && 'border-rose-500/40 bg-rose-500/5',
+      )}
+    >
+      <button
+        onClick={() => onView(ev)}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left"
+        aria-label={`View details for ${ev.name}`}
+      >
+        <div className={cn('h-8 w-1 rounded-full shrink-0', colors.bar)} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium truncate">{ev.name}</p>
+            {a.isAlternative && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 flex items-center gap-0.5 shrink-0">
+                <Shield className="h-3 w-3" /> Alt
+              </span>
+            )}
+            {acked && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 flex items-center gap-0.5 shrink-0">
+                <Check className="h-2.5 w-2.5" /> Confirmed
+              </span>
+            )}
+            {declined && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 flex items-center gap-0.5 shrink-0">
+                <X className="h-2.5 w-2.5" /> Declined
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-0.5">
+              <Calendar className="h-3 w-3" />
+              {formatPrettyDate(a.date)}
+            </span>
+            <span className="flex items-center gap-0.5">
+              <Clock className="h-3 w-3" />
+              {formatTime(ev.startTime)}
+            </span>
+            {a.shirtColor && (
+              <span className="flex items-center gap-0.5">
+                <Shirt className="h-3 w-3" />
+                {a.shirtColor}
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+      {/* Acknowledge buttons (hidden for past or already-acked assignments) */}
+      {!isPast && !acked && !declined && (
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onAck('confirmed') }}
+            disabled={ackPending}
+            className="p-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 min-h-[36px] min-w-[36px] flex items-center justify-center"
+            aria-label="Confirm assignment — I'll be there"
+            title="Confirm — I'll be there"
+          >
+            <Check className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onAck('declined') }}
+            disabled={ackPending}
+            className="p-2 rounded-md border border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 min-h-[36px] min-w-[36px] flex items-center justify-center"
+            aria-label="Decline assignment — I can't make it"
+            title="Decline — I can't make it"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       )}
     </div>
   )
