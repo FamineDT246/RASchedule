@@ -1,39 +1,74 @@
 /**
  * RA Syncbot Service Worker
  *
- * Minimal service worker — required for Android Chrome to fire the
- * 'beforeinstallprompt' event (PWA installability check).
+ * Network-first strategy with runtime caching.
  *
- * Strategy: network-first for everything (we don't cache offline yet).
- * This keeps the app simple while satisfying the PWA installability
- * criteria. If you want true offline support later, add runtime caching
- * here.
+ * - On install: pre-cache '/' so Chrome's offline installability check passes
+ * - On fetch: try network, cache successful GETs, fall back to cache when offline
+ * - On activate: clear old caches
+ *
+ * Required for Android Chrome to fire 'beforeinstallprompt'.
  */
 
-const SW_VERSION = 'ra-syncbot-v1'
+const CACHE_NAME = 'ra-syncbot-cache-v2'
 
 self.addEventListener('install', (event) => {
+  // Pre-cache the root route so the app responds 200 when offline
+  // (Chrome's PWA installability check requires this)
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(['/']))
+  )
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
+  // Clear old caches from previous SW versions
+  event.waitUntil(
+    caches.keys().then((cacheNames) =>
+      Promise.all(
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME) return caches.delete(name)
+        })
+      )
+    ).then(() => self.clients.claim())
+  )
 })
 
-// Network-first fetch handler (falls back to network on cache miss)
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return
 
-  // Skip cross-origin requests (analytics, fonts, etc.)
   const url = new URL(event.request.url)
+
+  // Skip cross-origin requests (analytics, fonts, etc.)
   if (url.origin !== self.location.origin) return
 
   // Skip API requests — always hit the network
   if (url.pathname.startsWith('/api/')) return
 
-  // Network-first: try the network, fall back to cache if offline
+  // Network-first: try network, cache the response, fall back to cache if offline
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request)
+      .then((response) => {
+        // Cache successful responses for offline fallback
+        if (response.ok) {
+          const responseClone = response.clone()
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone)
+          })
+        }
+        return response
+      })
+      .catch(() => {
+        // Offline — try cache, then 503 fallback
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached
+          return new Response('Offline', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain' },
+          })
+        })
+      })
   )
 })

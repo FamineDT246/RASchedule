@@ -55,9 +55,6 @@ export function InstallAppMenuItem({ onAfterAction }: { onAfterAction?: () => vo
   if (isStandalone) return null
 
   const handleClick = async () => {
-    // Close the account menu first
-    onAfterAction?.()
-
     // If we have a deferred prompt (Android Chrome with SW), try the native prompt
     if (deferredPrompt) {
       try {
@@ -65,6 +62,7 @@ export function InstallAppMenuItem({ onAfterAction }: { onAfterAction?: () => vo
         const choice = await deferredPrompt.userChoice
         if (choice.outcome === 'accepted') {
           setDeferredPrompt(null)
+          onAfterAction?.() // close the menu after install
           return // installed — don't show instructions
         }
         // dismissed — fall through to show manual instructions
@@ -73,8 +71,9 @@ export function InstallAppMenuItem({ onAfterAction }: { onAfterAction?: () => vo
       }
     }
 
-    // Always show instructions as fallback / for iOS
+    // Show instructions (fallback for iOS, or when native prompt not available)
     setShowInstructions(true)
+    onAfterAction?.() // close the menu now that instructions are showing
   }
 
   return (
@@ -88,10 +87,10 @@ export function InstallAppMenuItem({ onAfterAction }: { onAfterAction?: () => vo
         Install app
       </button>
 
-      {/* Instructions popover — always available as fallback */}
+      {/* Instructions popover — visible on all screen sizes when triggered */}
       {showInstructions && (
         <div
-          className="sm:hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0"
           onClick={() => setShowInstructions(false)}
         >
           <div

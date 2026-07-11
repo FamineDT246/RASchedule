@@ -257,9 +257,15 @@ export async function sendDigests() {
   const { db } = await import('./db')
 
   // Find users with pending digest emails
-  const pending = await db.execute({
-    sql: `SELECT DISTINCT userId FROM EmailQueue WHERE sentAt IS NULL AND urgency = 'digest'`,
-  })
+  let pending
+  try {
+    pending = await db.execute({
+      sql: `SELECT DISTINCT userId FROM EmailQueue WHERE sentAt IS NULL AND urgency = 'digest'`,
+    })
+  } catch (e: any) {
+    console.warn('[email] EmailQueue table missing — digest skipped:', e.message)
+    return { sent: 0, skipped: true }
+  }
 
   let sent = 0
   for (const row of pending.rows as any[]) {
@@ -307,9 +313,15 @@ export async function sendAllPending() {
   if (!RESEND_API_KEY) return { sent: 0, skipped: true }
   const { db } = await import('./db')
 
-  const pending = await db.execute({
-    sql: `SELECT DISTINCT userId FROM EmailQueue WHERE sentAt IS NULL`,
-  })
+  let pending
+  try {
+    pending = await db.execute({
+      sql: `SELECT DISTINCT userId FROM EmailQueue WHERE sentAt IS NULL`,
+    })
+  } catch (e: any) {
+    console.warn('[email] EmailQueue table missing — send-now skipped:', e.message)
+    return { sent: 0, skipped: true }
+  }
 
   let sent = 0
   for (const row of pending.rows as any[]) {
