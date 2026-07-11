@@ -6,7 +6,7 @@
 
 ## Project Summary
 
-**RA Syncbot** is a production-grade, drag-and-drop instructor scheduling application built for Robot Adventures Ltd (Barbados). It replaces a chaotic spreadsheet-based system for managing 19+ instructors across 15+ camps and workshops during the summer season.
+**RA Syncbot** is a production-grade, drag-and-drop instructor scheduling application built for RA Syncbot Ltd (Barbados). It replaces a chaotic spreadsheet-based system for managing 19+ instructors across 15+ camps and workshops during the summer season.
 
 **Live URL:** https://ra-schedule.vercel.app  
 **Repository:** https://github.com/FamineDT246/RASchedule  

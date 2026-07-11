@@ -260,7 +260,7 @@ export function formatTime(t: string): string {
 // Archived events don't show on the calendar (they're in the Events tab archive).
 export function eventOnDate(ev: EventView, dateISO: string): boolean {
   // Draft and Archived events never show on the calendar
-  if (ev.status === 'Draft' || ev.status === 'Archived') return false
+  if (ev.status === 'Draft') return false
   // Check setup date
   if (ev.setupDate && ev.setupDate === dateISO) return true
   // Cancelled events still show (greyed out) so the boss can see history
