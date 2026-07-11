@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Signed session management using Web Crypto API.
  * Works in both browser and Node.js (serverless).
