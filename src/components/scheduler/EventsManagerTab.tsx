@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Accordion } from './Accordion'
 import { HelpTooltip } from './HelpTooltip'
+import { SkillPicker } from './SkillPicker'
 
 type EventRow = EventView & {
   _assignmentCount?: number
@@ -541,10 +542,12 @@ function EventEditDrawer({ event, onClose, onSaved }: {
                 className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400 font-mono" />
             </Field>
           )}
-          <Field label="Skills (comma-separated, informational only)">
-            <input value={form.skills} onChange={e => setForm(f => ({ ...f, skills: e.target.value }))}
-              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-          </Field>
+          <SkillPicker
+            selected={form.skills.split(',').map(s => s.trim()).filter(Boolean)}
+            onChange={skills => setForm(f => ({ ...f, skills: skills.join(', ') }))}
+            allowCatalogManagement
+            label="Skills (informational only)"
+          />
           <Field label="Notes">
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2}
               className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400" />

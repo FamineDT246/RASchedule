@@ -64,6 +64,8 @@ export type AssignmentView = {
   status: string
   isAlternative: boolean
   shirtColor: string | null
+  ackStatus: 'confirmed' | 'declined' | null
+  acknowledgedAt: string | null
   profileName: string
   profileRoleTier: string
   eventName: string
@@ -82,6 +84,7 @@ export type AuthUser = {
   email: string | null
   role: 'admin' | 'instructor'
   profileId: string | null
+  emailNotifications?: boolean
   profile: {
     id: string
     name: string
@@ -90,6 +93,44 @@ export type AuthUser = {
     skills: string
     unavailable: string | null
   } | null
+}
+
+export type NotificationView = {
+  id: string
+  type: string
+  title: string
+  body: string | null
+  eventId: string | null
+  assignmentId: string | null
+  readAt: string | null
+  createdAt: string
+  read: boolean
+}
+
+export type EquipmentItem = {
+  id: string
+  eventId: string
+  name: string
+  quantity: number
+  notes: string | null
+  claims: EquipmentClaim[]
+}
+
+export type EquipmentClaim = {
+  id: string
+  equipmentItemId: string
+  profileId: string
+  profileName: string
+  quantityClaimed: number
+  transportOffered: boolean
+  notes: string | null
+  createdAt: string
+}
+
+export type SkillItem = {
+  id: string
+  name: string
+  createdAt: string
 }
 
 export type InviteView = {

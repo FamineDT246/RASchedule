@@ -113,6 +113,8 @@ export async function GET(req: NextRequest) {
       status: a.status,
       isAlternative: !!a.isAlternative,
       shirtColor: a.shirtColor,
+      ackStatus: a.ackStatus ?? null,
+      acknowledgedAt: a.acknowledgedAt ?? null,
       profileName: a.profileName,
       profileRoleTier: a.profileRoleTier,
       eventName: a.eventName,

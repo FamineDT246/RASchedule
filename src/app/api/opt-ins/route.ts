@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     // Email the admin
     const eventResult = await db.execute({ sql: 'SELECT name FROM Event WHERE id = ?', args: [eventId] })
     const eventName = eventResult.rows.length > 0 ? (eventResult.rows[0] as any).name : 'Unknown'
-    notifyOptInReceived(user.name, status, eventName).catch(() => {})
+    notifyOptInReceived(user.name, status, eventName, eventId).catch(() => {})
     return NextResponse.json({ id, userId: user.id, eventId, status, note })
   } else {
     const id = crypto.randomUUID()
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     // Email the admin
     const eventResult = await db.execute({ sql: 'SELECT name FROM Event WHERE id = ?', args: [eventId] })
     const eventName = eventResult.rows.length > 0 ? (eventResult.rows[0] as any).name : 'Unknown'
-    notifyOptInReceived(user.name, status, eventName).catch(() => {})
+    notifyOptInReceived(user.name, status, eventName, eventId).catch(() => {})
     return NextResponse.json({ id, userId: user.id, eventId, status, note }, { status: 201 })
   }
 }

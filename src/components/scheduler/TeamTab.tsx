@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { Accordion } from './Accordion'
 import { HelpTooltip } from './HelpTooltip'
+import { SkillPicker } from './SkillPicker'
 
 type Profile = ProfileView & {
   _assignmentCount?: number
@@ -457,14 +458,12 @@ function StaffEditDrawer({ profile, onClose, onSaved }: {
               aria-required="true"
             />
           </Field>
-          <Field label="Skills (comma-separated)">
-            <input
-              value={form.skills}
-              onChange={e => setForm(f => ({ ...f, skills: e.target.value }))}
-              placeholder="Robotics, Coding, CAD"
-              className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            />
-          </Field>
+          <SkillPicker
+            selected={form.skills.split(',').map(s => s.trim()).filter(Boolean)}
+            onChange={skills => setForm(f => ({ ...f, skills: skills.join(', ') }))}
+            allowCatalogManagement
+            label="Skills"
+          />
           <Field label="Availability window">
             <input
               value={form.available}

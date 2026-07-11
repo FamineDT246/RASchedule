@@ -23,8 +23,10 @@ import { WorkloadTab } from '@/components/scheduler/WorkloadTab'
 import { LoginForm } from '@/components/scheduler/LoginForm'
 import { InstructorView, ClaimInviteForm } from '@/components/scheduler/InstructorView'
 import { PWAInstallPrompt } from '@/components/scheduler/PWAInstallPrompt'
-import { ChevronDown, KeyRound, LogOut, User, X, CalendarDays } from 'lucide-react'
+import { ChevronDown, KeyRound, LogOut, User, X, CalendarDays, Sun, Moon, Bell, Mail } from 'lucide-react'
 import { useIsMobile } from '@/hooks/use-is-mobile'
+import { useTheme } from 'next-themes'
+import { NotificationBell } from '@/components/scheduler/NotificationBell'
 
 import {
   startOfWeekISO, addDaysISO, formatShortDate, todayInBarbados,
@@ -699,6 +701,28 @@ function InstructorTopBar({ user, onLogout, onChangePassword }: {
   onChangePassword: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const { theme, setTheme } = useTheme()
+  const qc = useQueryClient()
+  const [emailOn, setEmailOn] = useState<boolean>(user.emailNotifications ?? true)
+
+  const toggleEmails = async () => {
+    const newValue = !emailOn
+    setEmailOn(newValue)
+    try {
+      const r = await fetch('/api/auth/update-email-prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailNotifications: newValue }),
+      })
+      if (!r.ok) throw new Error()
+      toast.success(`Email notifications ${newValue ? 'on' : 'off'}`)
+      qc.invalidateQueries({ queryKey: ['me'] })
+    } catch {
+      setEmailOn(!newValue) // revert
+      toast.error('Failed to update email preferences')
+    }
+  }
+
   return (
     <header className="border-b border-border/60 bg-card/40 px-3 sm:px-4 py-2 flex items-center justify-between gap-2">
       <div className="flex items-center gap-2 min-w-0">
@@ -712,51 +736,82 @@ function InstructorTopBar({ user, onLogout, onChangePassword }: {
           </p>
         </div>
       </div>
-      <div className="relative shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Theme toggle */}
         <button
-          onClick={() => setMenuOpen(o => !o)}
-          className="px-2 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground flex items-center gap-1 min-h-[32px]"
-          aria-label="Account menu"
-          aria-expanded={menuOpen}
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="p-2 rounded-md border border-border/60 hover:bg-muted text-muted-foreground min-h-[32px] flex items-center justify-center"
+          aria-label="Toggle theme"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          <User className="h-3.5 w-3.5" />
-          <ChevronDown className="h-3 w-3" />
+          {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
         </button>
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-card border border-border/60 rounded-md shadow-lg py-1">
-              <div className="px-3 py-2 border-b border-border/40">
-                <p className="text-xs font-medium truncate">{user.name}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+
+        {/* Email toggle */}
+        <button
+          onClick={toggleEmails}
+          className={cn(
+            'p-2 rounded-md border min-h-[32px] flex items-center justify-center',
+            emailOn
+              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+              : 'border-border/60 hover:bg-muted text-muted-foreground',
+          )}
+          aria-label={`Email notifications ${emailOn ? 'on' : 'off'}`}
+          title={emailOn ? 'Email notifications on — click to turn off' : 'Email notifications off — click to turn on'}
+        >
+          <Mail className="h-3.5 w-3.5" />
+        </button>
+
+        {/* Notification bell */}
+        <NotificationBell />
+
+        {/* Account menu */}
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen(o => !o)}
+            className="px-2 py-1.5 text-xs rounded-md border border-border/60 hover:bg-muted text-muted-foreground flex items-center gap-1 min-h-[32px]"
+            aria-label="Account menu"
+            aria-expanded={menuOpen}
+          >
+            <User className="h-3.5 w-3.5" />
+            <ChevronDown className="h-3 w-3" />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-card border border-border/60 rounded-md shadow-lg py-1">
+                <div className="px-3 py-2 border-b border-border/40">
+                  <p className="text-xs font-medium truncate">{user.name}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+                </div>
+                <button
+                  onClick={() => { setMenuOpen(false); onChangePassword() }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center gap-2"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Change password
+                </button>
+                <a
+                  href={`/api/ical?token=${user.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center gap-2"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  Subscribe to calendar
+                </a>
+                <button
+                  onClick={() => { setMenuOpen(false); onLogout() }}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted text-rose-300 flex items-center gap-2"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Log out
+                </button>
               </div>
-              <button
-                onClick={() => { setMenuOpen(false); onChangePassword() }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center gap-2"
-              >
-                <KeyRound className="h-3.5 w-3.5" />
-                Change password
-              </button>
-              <a
-                href={`/api/ical?token=${user.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full text-left px-3 py-2 text-xs hover:bg-muted flex items-center gap-2"
-                onClick={() => setMenuOpen(false)}
-              >
-                <CalendarDays className="h-3.5 w-3.5" />
-                Subscribe to calendar
-              </a>
-              <button
-                onClick={() => { setMenuOpen(false); onLogout() }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-muted text-rose-300 flex items-center gap-2"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                Log out
-              </button>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </header>
   )

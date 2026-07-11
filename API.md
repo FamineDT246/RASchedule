@@ -386,14 +386,168 @@ Instructors subscribe via their account menu → "Subscribe to calendar".
 These are intended to be called by Vercel Cron (or any external scheduler).
 
 ### `POST /api/reminders`
-Send reminder emails for assignments happening tomorrow. Idempotent — safe to call multiple times per day.
+Send reminder emails for assignments happening in 2 days, AND send the daily digest of pending notifications.
 
-**200 Response** — `{ "sent": N, "skipped": M }`
+**200 Response** — `{ "reminders": N, "digests": N, "skipped": boolean }`
 
 ### `POST /api/auto-archive`
 Move all events whose `endDate` is in the past to `Archived` status.
 
 **200 Response** — `{ "archived": N }`
+
+---
+
+## Notifications
+
+### `GET /api/notifications`
+Return the current user's notifications (from the `Notification` table).
+
+**200 Response**
+```json
+{
+  "notifications": [
+    {
+      "id": "uuid",
+      "type": "assignment_created",
+      "title": "New assignment: ...",
+      "body": "...",
+      "eventId": "uuid",
+      "assignmentId": "uuid",
+      "readAt": null,
+      "createdAt": "2026-07-11T...",
+      "read": false
+    }
+  ],
+  "unread": 3
+}
+```
+
+### `POST /api/notifications/read?id=<notificationId>`
+Mark a single notification as read. If `id` is omitted, marks ALL of the user's notifications as read.
+
+**200 Response** — `{ "ok": true }`
+
+### `POST /api/notifications/send-now`
+**Admin only.** Flush all pending digest emails immediately. Useful when the admin has finished iterating on assignments and wants to notify instructors right away instead of waiting for the 8am digest.
+
+**200 Response** — `{ "sent": N, "skipped": boolean }`
+
+---
+
+## Email preferences
+
+### `POST /api/auth/update-email-prefs`
+Toggle email notifications for the current user. The notification bell is always on regardless of this setting.
+
+**Request body** — `{ "emailNotifications": true }`
+
+**200 Response** — `{ "ok": true, "emailNotifications": true }`
+
+---
+
+## Skills (catalog)
+
+### `GET /api/skills`
+List all skills in the catalog. **Authenticated.**
+
+**200 Response** — `[ { "id": "uuid", "name": "Robotics", "createdAt": "..." } ]`
+
+### `POST /api/skills`
+Create a new skill in the catalog. **Admin only.**
+
+**Request body** — `{ "name": "Drone Piloting" }`
+
+**201 Response** — `{ "id": "uuid", "name": "Drone Piloting" }`
+
+### `DELETE /api/skills?id=<id>`
+Remove a skill from the catalog. **Admin only.** Does not affect existing assignments (skills are stored as text on Profile.skills and EventSkill.skillName).
+
+**200 Response** — `{ "ok": true }`
+
+---
+
+## Equipment catalog
+
+### `GET /api/equipment`
+List all equipment catalog items. **Authenticated.**
+
+**200 Response** — `[ { "id": "uuid", "name": "Drone (Tello EDU)", "description": "..." } ]`
+
+### `POST /api/equipment`
+Create a new equipment catalog item. **Admin only.**
+
+**Request body** — `{ "name": "Drone (Tello EDU)", "description": "Educational drone" }`
+
+### `DELETE /api/equipment?id=<id>`
+Remove from catalog. **Admin only.**
+
+---
+
+## Event equipment (per-event)
+
+### `GET /api/event-equipment?eventId=<id>`
+List equipment items + their claims for a specific event.
+
+**200 Response**
+```json
+[
+  {
+    "id": "uuid",
+    "eventId": "uuid",
+    "name": "Drones",
+    "quantity": 5,
+    "notes": null,
+    "claims": [
+      {
+        "id": "uuid",
+        "equipmentItemId": "uuid",
+        "profileId": "uuid",
+        "profileName": "Nathan Reid",
+        "quantityClaimed": 3,
+        "transportOffered": true,
+        "notes": null,
+        "createdAt": "..."
+      }
+    ]
+  }
+]
+```
+
+### `POST /api/event-equipment`
+Add an equipment item to an event. **Admin only.**
+
+**Request body** — `{ "eventId": "uuid", "name": "Drones", "quantity": 5, "notes": "Tello EDU" }`
+
+### `PATCH /api/event-equipment?id=<itemId>`
+Update quantity/notes. **Admin only.**
+
+### `DELETE /api/event-equipment?id=<itemId>`
+Remove an equipment item (cascades to its claims). **Admin only.**
+
+---
+
+## Equipment claims (instructor transport)
+
+### `GET /api/equipment-claims?equipmentItemId=<id>`
+List claims for an equipment item.
+
+### `POST /api/equipment-claims`
+Create or update a claim. Instructors say "I'll bring this" and optionally mark that they can transport it.
+
+**Request body**
+```json
+{
+  "equipmentItemId": "uuid",
+  "quantityClaimed": 2,
+  "transportOffered": true,
+  "notes": "I'll pick them up from the office"
+}
+```
+
+If the instructor already has a claim on this item, the existing claim is updated.
+
+### `DELETE /api/equipment-claims?id=<claimId>`
+Release a claim. Instructors can only release their own claims; admins can release any.
 
 ---
 

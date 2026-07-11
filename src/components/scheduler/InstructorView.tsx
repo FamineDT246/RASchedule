@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { Accordion } from './Accordion'
 import { CalendarView } from './CalendarView'
+import { EquipmentSection } from './EquipmentSection'
 
 type OptInMap = Record<string, { status: string; note: string | null }>
 
@@ -74,6 +75,24 @@ export function InstructorView({ user }: { user: AuthUser }) {
       toast.success('Preference saved')
     },
     onError: (e: any) => toast.error(e.message || 'Failed to save preference'),
+  })
+
+  const ackMutation = useMutation({
+    mutationFn: async (args: { id: string; ackStatus: 'confirmed' | 'declined' }) => {
+      const r = await fetch(`/api/assignments?id=${args.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ackStatus: args.ackStatus }),
+      })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || 'Failed')
+      return j
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['schedule'] })
+      toast.success(vars.ackStatus === 'confirmed' ? 'Assignment confirmed' : 'Assignment declined — the boss has been notified')
+    },
+    onError: (e: any) => toast.error(e.message || 'Failed to acknowledge'),
   })
 
   // My assignments = assignments where profileId matches the linked profile
@@ -183,44 +202,86 @@ export function InstructorView({ user }: { user: AuthUser }) {
                     const ev = data?.events.find((e: EventView) => e.id === a.eventId)
                     if (!ev) return null
                     const colors = hostColor(ev.hostColor)
+                    const acked = a.ackStatus === 'confirmed'
+                    const declined = a.ackStatus === 'declined'
                     return (
                       <div
                         key={a.id}
-                        onClick={() => setSelectedEvent(ev)}
                         className={cn(
-                          'rounded-lg border p-3 flex items-center gap-3 cursor-pointer hover:border-foreground/30 transition-all',
+                          'rounded-lg border p-3 flex items-center gap-3 transition-all',
                           a.isAlternative
                             ? 'border-amber-500/30 border-dashed bg-amber-500/5'
                             : 'border-border/60 bg-card/80',
+                          acked && 'border-emerald-500/40 bg-emerald-500/5',
+                          declined && 'border-rose-500/40 bg-rose-500/5',
                         )}
                       >
-                        <div className={cn('h-8 w-1 rounded-full shrink-0', colors.bar)} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium truncate">{ev.name}</p>
-                            {a.isAlternative && (
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 flex items-center gap-0.5 shrink-0">
-                                <Shield className="h-3 w-3" /> Alt
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
-                            <span className="flex items-center gap-0.5">
-                              <Calendar className="h-3 w-3" />
-                              {formatPrettyDate(a.date)}
-                            </span>
-                            <span className="flex items-center gap-0.5">
-                              <Clock className="h-3 w-3" />
-                              {formatTime(ev.startTime)}
-                            </span>
-                            {a.shirtColor && (
+                        <button
+                          onClick={() => setSelectedEvent(ev)}
+                          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                          aria-label={`View details for ${ev.name}`}
+                        >
+                          <div className={cn('h-8 w-1 rounded-full shrink-0', colors.bar)} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium truncate">{ev.name}</p>
+                              {a.isAlternative && (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 flex items-center gap-0.5 shrink-0">
+                                  <Shield className="h-3 w-3" /> Alt
+                                </span>
+                              )}
+                              {acked && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 flex items-center gap-0.5 shrink-0">
+                                  <Check className="h-2.5 w-2.5" /> Confirmed
+                                </span>
+                              )}
+                              {declined && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 flex items-center gap-0.5 shrink-0">
+                                  <X className="h-2.5 w-2.5" /> Declined
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
                               <span className="flex items-center gap-0.5">
-                                <Shirt className="h-3 w-3" />
-                                {a.shirtColor}
+                                <Calendar className="h-3 w-3" />
+                                {formatPrettyDate(a.date)}
                               </span>
-                            )}
+                              <span className="flex items-center gap-0.5">
+                                <Clock className="h-3 w-3" />
+                                {formatTime(ev.startTime)}
+                              </span>
+                              {a.shirtColor && (
+                                <span className="flex items-center gap-0.5">
+                                  <Shirt className="h-3 w-3" />
+                                  {a.shirtColor}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        </button>
+                        {/* Acknowledge buttons (hidden if already acked) */}
+                        {!acked && !declined && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); ackMutation.mutate({ id: a.id, ackStatus: 'confirmed' }) }}
+                              disabled={ackMutation.isPending}
+                              className="p-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 min-h-[36px] min-w-[36px] flex items-center justify-center"
+                              aria-label="Confirm assignment — I'll be there"
+                              title="Confirm — I'll be there"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); ackMutation.mutate({ id: a.id, ackStatus: 'declined' }) }}
+                              disabled={ackMutation.isPending}
+                              className="p-2 rounded-md border border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 min-h-[36px] min-w-[36px] flex items-center justify-center"
+                              aria-label="Decline assignment — I can't make it"
+                              title="Decline — I can't make it"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -327,6 +388,7 @@ export function InstructorView({ user }: { user: AuthUser }) {
           isAssigned={myAssignments.some(a => a.eventId === selectedEvent.id)}
           onOptIn={(status) => optInMutation.mutate({ eventId: selectedEvent.id, status })}
           onClose={() => setSelectedEvent(null)}
+          myProfileId={user.profile?.id}
         />
       )}
     </div>
@@ -370,12 +432,13 @@ function CarouselGroup({ items, itemsPerGroup = 5 }: { items: React.ReactNode[];
 
 // ---------- Event details drawer (instructor view) ----------
 
-function InstructorEventDrawer({ event, optIn, isAssigned, onOptIn, onClose }: {
+function InstructorEventDrawer({ event, optIn, isAssigned, onOptIn, onClose, myProfileId }: {
   event: EventView
   optIn?: { status: string; note: string | null }
   isAssigned: boolean
   onOptIn: (status: 'interested' | 'available' | 'unavailable') => void
   onClose: () => void
+  myProfileId?: string | null
 }) {
   const colors = hostColor(event.hostColor)
   return (
@@ -474,6 +537,11 @@ function InstructorEventDrawer({ event, optIn, isAssigned, onOptIn, onClose }: {
               <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Notes</h3>
               <p className="text-xs leading-relaxed text-muted-foreground">{event.notes}</p>
             </div>
+          )}
+
+          {/* Equipment coordination (instructor view — only if assigned) */}
+          {isAssigned && (
+            <EquipmentSection event={event} mode="instructor" myProfileId={myProfileId} />
           )}
 
           {/* Opt-in section */}

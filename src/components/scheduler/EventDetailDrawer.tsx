@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import {
   X, MapPin, Clock, Users, Calendar, GraduationCap, Tag, Trash2, Shield, Shirt, Star, Lock, Wrench,
 } from 'lucide-react'
+import { EquipmentSection } from './EquipmentSection'
 
 type Props = {
   event: EventView | null
@@ -116,6 +117,35 @@ export function EventDetailDrawer({
                 {isFull ? 'Full' : `${needed - filled} more needed`}
               </span>
             </div>
+            {/* Acknowledgment summary */}
+            {primaryAssignments.length > 0 && (
+              <div className="flex items-center gap-2 mb-2 text-[10px]">
+                {(() => {
+                  const confirmed = primaryAssignments.filter(a => a.ackStatus === 'confirmed').length
+                  const declined = primaryAssignments.filter(a => a.ackStatus === 'declined').length
+                  const pending = primaryAssignments.length - confirmed - declined
+                  return (
+                    <>
+                      {confirmed > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          ✓ {confirmed} confirmed
+                        </span>
+                      )}
+                      {declined > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                          ✗ {declined} declined
+                        </span>
+                      )}
+                      {pending > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                          ⏳ {pending} pending
+                        </span>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
+            )}
             <p className="text-[10px] text-muted-foreground/70 mb-2 flex items-center gap-1">
               <Shirt className="h-2.5 w-2.5" />
               Shirt color is set per day per event — change it for each instructor below.
@@ -187,6 +217,9 @@ export function EventDetailDrawer({
               <p className="text-xs leading-relaxed text-muted-foreground">{event.notes}</p>
             </div>
           )}
+
+          {/* Equipment coordination */}
+          <EquipmentSection event={event} mode="admin" />
 
           {/* Opt-ins section */}
           {event.optIns && (event.optIns.interested.length + event.optIns.available.length + event.optIns.unavailable.length > 0) && (
@@ -288,7 +321,19 @@ function AssignmentRow({
         {assignment.profileName.split(' ').map(n => n[0]).slice(0, 2).join('')}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium truncate">{assignment.profileName}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs font-medium truncate">{assignment.profileName}</p>
+          {assignment.ackStatus === 'confirmed' && (
+            <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
+              ✓
+            </span>
+          )}
+          {assignment.ackStatus === 'declined' && (
+            <span className="text-[9px] px-1 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 shrink-0" title="Instructor declined this assignment">
+              ✗ declined
+            </span>
+          )}
+        </div>
         <p className="text-[10px] text-muted-foreground">{assignment.profileRoleTier}</p>
         {/* Skill match indicator */}
         {(() => {

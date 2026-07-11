@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
       email: user.email,
       role: user.role,
       profileId: user.profileId,
+      emailNotifications: user.emailNotifications,
       profile: user.profile,
     },
   })
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
       email: user.email,
       role: user.role,
       profileId: user.profileId,
+      emailNotifications: user.emailNotifications,
       profile,
     },
   })

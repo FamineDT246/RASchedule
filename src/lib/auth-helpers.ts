@@ -29,6 +29,7 @@ export async function getAuthUser(req: NextRequest) {
     profileId: row.profileId ?? null,
     passwordHash: row.passwordHash,
     claimedAt: row.claimedAt,
+    emailNotifications: row.emailNotifications === null || row.emailNotifications === undefined ? true : !!row.emailNotifications,
     profile: row.profileId ? {
       id: row.profileId,
       name: row.profileName,

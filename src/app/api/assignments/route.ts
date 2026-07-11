@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from "@/lib/auth-helpers"
+import { requireAdmin, getAuthUser } from "@/lib/auth-helpers"
 import { db } from '@/lib/db'
 import { notifyAssignmentCreated, notifyAssignmentRemoved } from '@/lib/email'
-import { getAuthUser } from '@/lib/auth-helpers'
 
 // GET /api/assignments?eventId=...&profileId=...&date=YYYY-MM-DD
 export async function GET(req: NextRequest) {
@@ -71,18 +70,66 @@ export async function POST(req: NextRequest) {
   // Send email notification (fire-and-forget)
   const eventResult = await db.execute({ sql: 'SELECT name FROM Event WHERE id = ?', args: [eventId] })
   const eventName = eventResult.rows.length > 0 ? (eventResult.rows[0] as any).name : 'Unknown event'
-  notifyAssignmentCreated(profileId, eventName, date, shirtColor ?? null).catch(() => {})
+  notifyAssignmentCreated(profileId, eventName, date, shirtColor ?? null, eventId).catch(() => {})
 
   return NextResponse.json(result.rows[0], { status: 201 })
 }
 
 // PATCH /api/assignments?id=...
+// Admin: can update isAlternative, shirtColor, status
+// Instructor: can only update acknowledgedAt + ackStatus on their own assignments
 export async function PATCH(req: NextRequest) {
-  const authPatch = await requireAdmin(req); if (authPatch) return authPatch;
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
   const body = await req.json()
+
+  // Check if this is an acknowledgment (instructor action)
+  if ('ackStatus' in body) {
+    const user = await getAuthUser(req)
+    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    if (!user.profileId) return NextResponse.json({ error: 'No profile linked' }, { status: 400 })
+
+    // Verify the assignment belongs to this instructor
+    const assignment = await db.execute({
+      sql: 'SELECT profileId FROM Assignment WHERE id = ?',
+      args: [id],
+    })
+    if (assignment.rows.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if ((assignment.rows[0] as any).profileId !== user.profileId) {
+      return NextResponse.json({ error: 'Not your assignment' }, { status: 403 })
+    }
+
+    const ackStatus = body.ackStatus as string
+    if (!['confirmed', 'declined'].includes(ackStatus)) {
+      return NextResponse.json({ error: 'ackStatus must be "confirmed" or "declined"' }, { status: 400 })
+    }
+
+    try {
+      await db.execute({
+        sql: "UPDATE Assignment SET ackStatus = ?, acknowledgedAt = datetime('now'), updatedAt = datetime('now') WHERE id = ?",
+        args: [ackStatus, id],
+      })
+    } catch (e: any) {
+      // Column might not exist — try ALTER TABLE
+      try {
+        await db.execute({ sql: 'ALTER TABLE Assignment ADD COLUMN ackStatus TEXT' })
+        await db.execute({ sql: 'ALTER TABLE Assignment ADD COLUMN acknowledgedAt TEXT' })
+        await db.execute({
+          sql: "UPDATE Assignment SET ackStatus = ?, acknowledgedAt = datetime('now'), updatedAt = datetime('now') WHERE id = ?",
+          args: [ackStatus, id],
+        })
+      } catch (e2: any) {
+        return NextResponse.json({ error: 'Failed to acknowledge' }, { status: 500 })
+      }
+    }
+
+    const result = await db.execute({ sql: 'SELECT * FROM Assignment WHERE id = ?', args: [id] })
+    return NextResponse.json(result.rows[0])
+  }
+
+  // Admin-only field updates
+  const authPatch = await requireAdmin(req); if (authPatch) return authPatch;
 
   const updates: string[] = []
   const args: unknown[] = []
@@ -109,7 +156,7 @@ export async function DELETE(req: NextRequest) {
 
   // Get assignment info before deleting (for email notification)
   const existing = await db.execute({
-    sql: `SELECT a.profileId, a.assignedDate, e.name as eventName FROM Assignment a JOIN Event e ON a.eventId = e.id WHERE a.id = ?`,
+    sql: `SELECT a.profileId, a.assignedDate, a.eventId, e.name as eventName FROM Assignment a JOIN Event e ON a.eventId = e.id WHERE a.id = ?`,
     args: [id],
   })
 
@@ -118,7 +165,7 @@ export async function DELETE(req: NextRequest) {
   // Send email notification (fire-and-forget)
   if (existing.rows.length > 0) {
     const a = existing.rows[0] as any
-    notifyAssignmentRemoved(a.profileId, a.eventName, String(a.assignedDate).slice(0, 10)).catch(() => {})
+    notifyAssignmentRemoved(a.profileId, a.eventName, String(a.assignedDate).slice(0, 10), a.eventId).catch(() => {})
   }
 
   return NextResponse.json({ ok: true })

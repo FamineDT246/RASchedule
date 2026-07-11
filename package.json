@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "seed": "bun run scripts/seed.ts"
+    "seed": "bun run scripts/seed.ts",
+    "migrate": "bun run scripts/migrate.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

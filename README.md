@@ -18,22 +18,31 @@ RA Syncbot replaces a chaotic spreadsheet-based system for managing ~20 instruct
 - **Week + month calendar views** — week view for editing, month view for overview.
 - **Conflict detection** — double-bookings, fatigue (3+ consecutive days), skill gaps, and unavailable-date violations are flagged in real time.
 - **Event management** — create, edit, delete, and archive events; set required skills, host, location, age range, participant count, setup date/time, and shirt colors.
+- **Equipment coordination** — post equipment lists per event; instructors claim items they'll bring; transport matchmaking.
 - **Team management** — manage instructor profiles, skills, contracts, and notes.
+- **Skill catalog** — reusable skill catalog (define once, reuse everywhere); add/delete from the picker.
 - **Invites** — generate invite links for new instructors; revoke or resend at any time.
 - **Workload dashboard** — per-instructor assignment counts, day breakdowns, opt-in summary.
 - **Conflict summary tab** — overview of every flagged conflict across all events.
+- **Acknowledgment tracking** — see which instructors confirmed vs. declined their assignments.
 - **Print & PDF export** — print the current week or export a PDF.
 - **CSV export** — bulk export all assignments.
+- **Send-now button** — flush pending digest emails immediately instead of waiting for the 8am digest.
 
 ### Instructor
 - **3-tab view** — My Assignments / Opt In / Calendar.
+- **Acknowledge button** — confirm or decline each assignment; admin sees your response.
+- **Notification bell** — in-app bell with unread badge; no need to check email.
+- **Email toggle** — turn email notifications on/off per account (bell always works).
 - **Opt-in system** — express interest (interested / available / unavailable) on any event.
+- **Equipment claims** — claim items you'll bring; mark if you can transport; the boss arranges dropoff.
 - **Availability management** — mark dates you can't work; the admin scheduler respects these.
 - **Calendar sync** — subscribe to a personal iCal feed (`/api/ical?token=<userId>`).
-- **Email notifications** — assignment created/removed, opt-in received, daily reminders for upcoming assignments.
+- **Email notifications** — smart digest system: instant for urgent changes (<72h), daily digest otherwise.
 - **Account claim flow** — invite links require email verification (6-digit code) before account creation.
 
 ### Cross-cutting
+- **Smart email digest** — changes to events >72h away queue for the 8am digest; changes to events <72h away fire instantly; opt-in receipts always instant; admin can flush the queue manually.
 - **Light/dark mode** toggle with system preference default.
 - **PWA installable** — add to home screen on iOS/Android.
 - **WCAG 2.1 AA** — 16px base text, 12px floor, 44px touch targets, ARIA roles, full keyboard navigation.
@@ -82,6 +91,9 @@ cp .env.example .env
 
 # 3. Run the database seed (creates schema + demo data)
 bun run seed
+
+# 3b. (Existing deployments only) Run migrations to add new tables/columns
+bun run migrate
 
 # 4. Start the dev server
 bun run dev
