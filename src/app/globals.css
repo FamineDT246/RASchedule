@@ -132,9 +132,9 @@
    - Absolute floor (badges, timestamps): 12px (0.75rem)
    - Nothing below 12px ever */
 @layer utilities {
-  .text-\\[9px\\] { font-size: 12px !important; }
-  .text-\\[10px\\] { font-size: 12px !important; }
-  .text-\\[11px\\] { font-size: 12px !important; }
+  .text-\[9px\] { font-size: 12px !important; }
+  .text-\[10px\] { font-size: 12px !important; }
+  .text-\[11px\] { font-size: 12px !important; }
   /* 12px is fine for badges/timestamps — leave as-is */
 }
 

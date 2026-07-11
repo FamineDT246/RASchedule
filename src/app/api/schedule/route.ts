@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
        (endDate >= ? AND endDate <= ?) OR 
        (startDate <= ? AND endDate >= ?) 
        ORDER BY startDate ASC`
-    : `SELECT * FROM Event WHERE status != 'Draft' AND status != 'Archived' AND (
+    : `SELECT * FROM Event WHERE status != 'Draft' AND (
        (startDate >= ? AND startDate <= ?) OR 
        (endDate >= ? AND endDate <= ?) OR 
        (startDate <= ? AND endDate >= ?) 

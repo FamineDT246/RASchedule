@@ -104,6 +104,19 @@ export default function Home() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
+  // Close drawers/modals with Esc key
+  // Priority: event drawer → change password modal → tap selection
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (selected) { setSelected(null); return }
+      if (showChangePassword) { setShowChangePassword(false); return }
+      if (tapSelectedProfileId) { setTapSelectedProfileId(null); return }
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [selected, showChangePassword, tapSelectedProfileId])
+
   // Print handler — renders PrintLayout to a portal, triggers window.print(), then cleans up
   const handlePrint = useCallback(() => {
     setPrintMode(true)
@@ -493,9 +506,10 @@ export default function Home() {
 
         {/* Tab nav — horizontal scroll on mobile */}
         <nav
-          className="border-b border-border/60 bg-card/30 flex items-center gap-1 px-3 overflow-x-auto"
+          className="border-b border-border/60 bg-card/30 flex items-center gap-1 px-2 sm:px-3 overflow-x-auto"
           role="tablist"
           aria-label="Main navigation"
+          style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
         >
           <TabButton active={tab === 'scheduler'} onClick={() => setTab('scheduler')}>
             Scheduler
@@ -665,7 +679,7 @@ function TabButton({ active, onClick, children }: {
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`px-3 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap min-h-[40px] flex items-center ${
+      className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap min-h-[44px] flex items-center shrink-0 ${
         active
           ? 'border-emerald-400 text-foreground'
           : 'border-transparent text-muted-foreground hover:text-foreground'
