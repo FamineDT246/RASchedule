@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
-import { useSyncExternalStore } from 'react'
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
@@ -57,25 +56,17 @@ export default function Home() {
   const { data: meData, refetch: refetchMe } = useQuery({ queryKey: ['me'], queryFn: fetchMe })
   const user = meData?.user ?? null
 
-  // Token claim flow — read on client only to avoid hydration mismatch.
-  // useSyncExternalStore returns empty string on server, real value on client.
-  const [tokenOverride, setTokenOverride] = useState<string | null>(null)
-  const clientToken = useSyncExternalStore(
-    () => () => {},
-    () => {
-      if (typeof window === 'undefined') return ''
-      if (tokenOverride !== null) return tokenOverride
+  // Token claim flow — read on client only to avoid hydration mismatch
+  const [claimToken, setClaimToken] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+    if (typeof window !== 'undefined') {
       const url = new URL(window.location.href)
-      return url.searchParams.get('token') ?? ''
-    },
-    () => '',
-  )
-  const claimToken = clientToken || null
-  const mounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  )
+      const t = url.searchParams.get('token')
+      if (t) setClaimToken(t)
+    }
+  }, [])
 
   // Active tab
   const [tab, setTab] = useState<Tab>('scheduler')
@@ -399,7 +390,7 @@ export default function Home() {
         <ClaimInviteForm
           token={claimToken}
           onClaimed={() => {
-            setTokenOverride('')
+            setClaimToken('')
             if (typeof window !== 'undefined') {
               const url = new URL(window.location.href)
               url.searchParams.delete('token')
