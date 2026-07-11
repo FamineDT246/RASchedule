@@ -145,6 +145,16 @@ export function SkillPicker({ selected, onChange, allowCatalogManagement = false
           value={query}
           onChange={e => { setQuery(e.target.value); setShowDropdown(true) }}
           onFocus={() => setShowDropdown(true)}
+          onBlur={() => {
+            // Delay so item clicks register before the dropdown closes
+            setTimeout(() => setShowDropdown(false), 150)
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Escape') {
+              setShowDropdown(false)
+              setQuery('')
+            }
+          }}
           placeholder={placeholder}
           className="w-full px-2 py-1.5 text-sm rounded-md bg-background border border-border/60 focus:outline-none focus:ring-1 focus:ring-emerald-400"
         />
