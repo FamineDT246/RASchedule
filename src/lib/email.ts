@@ -253,6 +253,8 @@ export async function notifyOptInReceived(userName: string, status: string, even
  */
 export async function sendDigests() {
   if (!RESEND_API_KEY) return { sent: 0, skipped: true }
+  // Kill switch — automatic digests disabled unless explicitly enabled
+  if (process.env.ENABLE_AUTOMATIC_EMAILS !== '1') return { sent: 0, skipped: true }
   const { db } = await import('./db')
 
   // Find users with pending digest emails
@@ -372,6 +374,8 @@ const sentRemindersToday = new Set<string>()
 
 export async function sendReminders() {
   if (!RESEND_API_KEY) return { sent: 0, skipped: true }
+  // Kill switch — automatic reminders disabled unless explicitly enabled
+  if (process.env.ENABLE_AUTOMATIC_EMAILS !== '1') return { sent: 0, skipped: true }
   const { db } = await import('./db')
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Barbados', year: 'numeric', month: '2-digit', day: '2-digit',

@@ -36,11 +36,14 @@ import {
 } from '@/lib/scheduler-types'
 
 // ---- data fetch ----
+let autoArchiveCalled = false // module-level guard — only call once per session
 async function fetchSchedule(): Promise<ScheduleData> {
-  // NOTE: /api/reminders and /api/auto-archive are NOT called here.
-  // They were previously called on every schedule refetch (5+ times/minute
-  // during drag-and-drop), which caused massive email spam.
-  // These endpoints should only be called by Vercel Cron (once per day).
+  // Auto-archive past events + clean old unavailable dates (once per session)
+  // This does NOT send any emails — it's just DB cleanup.
+  if (!autoArchiveCalled) {
+    autoArchiveCalled = true
+    fetch('/api/auto-archive', { method: 'POST' }).catch(() => {})
+  }
   const r = await fetch('/api/schedule?from=2026-06-01&to=2026-09-30')
   if (!r.ok) throw new Error('Failed to load schedule')
   return r.json()

@@ -97,6 +97,7 @@ export function InstructorView({ user }: { user: AuthUser }) {
   })
 
   // My assignments = assignments where profileId matches the linked profile
+  // Exclude TBD (Tentative) events from upcoming — they're not confirmed yet
   const myProfileId = user.profile?.id
   const myAssignments = useMemo(() => {
     if (!data || !myProfileId) return []
@@ -106,13 +107,20 @@ export function InstructorView({ user }: { user: AuthUser }) {
   }, [data, myProfileId])
 
   // Split into upcoming and past (based on Barbados timezone)
+  // Upcoming excludes Tentative (TBD) events — they're not confirmed
   const { upcomingAssignments, pastAssignments } = useMemo(() => {
     const today = todayInBarbados()
     return {
-      upcomingAssignments: myAssignments.filter(a => a.date >= today),
+      upcomingAssignments: myAssignments.filter(a => {
+        if (a.date < today) return false
+        const ev = data?.events.find(e => e.id === a.eventId)
+        // Exclude Tentative (TBD) events from upcoming
+        if (ev?.status === 'Tentative') return false
+        return true
+      }),
       pastAssignments: myAssignments.filter(a => a.date < today),
     }
-  }, [myAssignments])
+  }, [myAssignments, data])
 
   // Available events to opt in to (Confirmed + Tentative, exclude Draft/Cancelled)
   const optableEvents = useMemo(() => {

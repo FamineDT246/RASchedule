@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  roleColor, type ScheduleData,
+  roleColor, todayInBarbados, type ScheduleData,
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import { Users, Calendar, TrendingUp, AlertTriangle } from 'lucide-react'
@@ -22,7 +22,12 @@ export function WorkloadTab() {
   const workload = useMemo(() => {
     if (!data) return []
 
-    // Count assignments per instructor
+    // Exclude Tentative (TBD) events — they're not confirmed yet
+    const confirmedEventIds = new Set(
+      data.events.filter(e => e.status === 'Confirmed').map(e => e.id)
+    )
+
+    // Count assignments per instructor (only for Confirmed events)
     const counts = new Map<string, { profile: any; total: number; primary: number; alt: number; days: Set<string>; events: Set<string> }>()
 
     for (const p of data.profiles) {
@@ -30,6 +35,8 @@ export function WorkloadTab() {
     }
 
     for (const a of data.assignments) {
+      // Skip assignments on Tentative events
+      if (!confirmedEventIds.has(a.eventId)) continue
       const entry = counts.get(a.profileId)
       if (!entry) continue
       entry.total++
