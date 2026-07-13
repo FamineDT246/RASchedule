@@ -356,7 +356,19 @@ export async function sendAllPending() {
   return { sent, skipped: false }
 }
 
-// ---------- Reminders (unchanged behavior, instant) ----------
+// ---------- Reminders ----------
+
+/**
+ * Send reminder emails for assignments happening in 2 days.
+ *
+ * IDEMPOTENT: uses a module-level Set to track which (userId, targetDate)
+ * pairs have already been sent today. If called multiple times in the same
+ * process (e.g. by Vercel Cron + accidental page load), the second call
+ * is a no-op. The Set resets when the serverless function cold-starts
+ * (which is fine — cold starts happen at most once per minute on Vercel
+ * free tier, and cron runs once per day).
+ */
+const sentRemindersToday = new Set<string>()
 
 export async function sendReminders() {
   if (!RESEND_API_KEY) return { sent: 0, skipped: true }
@@ -367,6 +379,19 @@ export async function sendReminders() {
   const d = new Date(today + 'T00:00:00.000Z')
   d.setUTCDate(d.getUTCDate() + 2)
   const targetDate = d.toISOString().slice(0, 10)
+
+  // Also check the DB for reminders already sent today (survives cold starts)
+  let alreadySentToday: Set<string>
+  try {
+    const sent = await db.execute({
+      sql: `SELECT userId FROM EmailQueue
+            WHERE type = 'reminder' AND sentAt IS NOT NULL
+            AND createdAt >= datetime('now', '-1 day')`,
+    })
+    alreadySentToday = new Set(sent.rows.map((r: any) => r.userId))
+  } catch {
+    alreadySentToday = new Set()
+  }
 
   const assignments = await db.execute({
     sql: `SELECT a.*, e.name as eventName, e.location, e.startTime, e.id as eventId, u.email, u.id as userId, u.emailNotifications, p.name as profileName
@@ -380,9 +405,27 @@ export async function sendReminders() {
   for (const a of assignments.rows as any[]) {
     const emailOn = a.emailNotifications === null || a.emailNotifications === undefined ? true : !!a.emailNotifications
     if (!emailOn) continue
+
+    // Skip if already sent today (in-memory + DB check)
+    const key = `${a.userId}:${targetDate}`
+    if (sentRemindersToday.has(key) || alreadySentToday.has(a.userId)) continue
+
     const html = `<h2>⏰ Reminder</h2><p>You're assigned to <strong>${escapeHtml(a.eventName)}</strong> on ${escapeHtml(targetDate)} at ${escapeHtml(a.startTime)}.${a.location ? ` Location: ${escapeHtml(a.location)}.` : ''}${a.shirtColor ? ` Shirt: ${escapeHtml(a.shirtColor)}.` : ''}</p>`
     const success = await sendEmail(a.email, `Reminder: ${a.eventName} in 2 days`, html)
-    if (success) sent++
+    if (success) {
+      sent++
+      sentRemindersToday.add(key)
+      // Record in DB so we don't re-send after a cold start
+      try {
+        await db.execute({
+          sql: `INSERT INTO EmailQueue (id, userId, type, subject, body, urgency, sentAt, createdAt)
+                VALUES (?, ?, 'reminder', ?, ?, 'instant', datetime('now'), datetime('now'))`,
+          args: [crypto.randomUUID(), a.userId, `Reminder: ${a.eventName}`, html],
+        })
+      } catch {
+        // EmailQueue might not exist — non-critical
+      }
+    }
   }
   return { sent, skipped: false }
 }
