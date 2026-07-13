@@ -147,12 +147,15 @@ export async function notifyUser(opts: {
   })
 
   // 2. Queue the email if user has email notifications on (or alwaysEmail=true)
+  //    EMAILS ARE NEVER SENT AUTOMATICALLY — they go to the queue only.
+  //    Jelani must click "Send Now" to flush the queue (sendAllPending).
+  //    The only exceptions are verification codes + welcome emails (claim flow),
+  //    which call sendEmail() directly, not through notifyUser().
   const prefs = await getUserEmailAndPrefs(userId)
   if (!prefs || !prefs.email) return // no email address → can't email
   if (!alwaysEmail && !prefs.emailNotifications) return // user opted out
 
-  // Capture the queue row id so we can reliably mark it sent (datetime('now') has
-  // 1-second precision and would otherwise fail to match after the sendEmail HTTP call)
+  // Queue the email — does NOT send immediately, even if urgency is 'instant'
   const emailQueueId = crypto.randomUUID()
   await db.execute({
     sql: `INSERT INTO EmailQueue (id, userId, type, subject, body, eventId, urgency, sentAt, createdAt)
@@ -170,14 +173,7 @@ export async function notifyUser(opts: {
     // EmailQueue table might not exist yet (pre-migration). Silently skip.
   })
 
-  // 3. If urgency is 'instant', send immediately and mark the row sent by id
-  if (urgency === 'instant') {
-    await sendEmail(prefs.email, opts.emailSubject ?? title, opts.emailHtml ?? `<p>${body ?? title}</p>`)
-    await db.execute({
-      sql: "UPDATE EmailQueue SET sentAt = datetime('now') WHERE id = ?",
-      args: [emailQueueId],
-    }).catch(() => {})
-  }
+  // NO instant send — all emails go to the queue and wait for "Send Now"
 }
 
 // ---------- High-level notification helpers ----------
