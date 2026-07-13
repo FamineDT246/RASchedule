@@ -37,25 +37,13 @@ function escapeHtml(s: string): string {
 }
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
-  if (!RESEND_API_KEY) return false
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
-    })
-    if (!res.ok) {
-      console.error('[email] Failed:', await res.text())
-      return false
-    }
-    return true
-  } catch (e: any) {
-    console.error('[email] Error:', e.message)
-    return false
-  }
+  // =====================================================
+  // EMAIL SENDING DISABLED — all paths return false.
+  // In-app bell notifications still work (notifyUser creates
+  // Notification table rows, which don't call sendEmail).
+  // To re-enable: restore the fetch() call below.
+  // =====================================================
+  return false
 }
 
 // ---------- User lookup helpers ----------
