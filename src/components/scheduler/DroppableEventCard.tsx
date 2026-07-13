@@ -65,13 +65,15 @@ export function DroppableEventCard({
         selected && 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-background',
         isOver && 'ring-2 ring-emerald-400 scale-[1.02]',
         highlightTapTarget && !isReadOnly && 'ring-2 ring-emerald-400/60 animate-pulse cursor-pointer',
-        isCancelled || isArchived
-          ? 'border-rose-500/40 opacity-60'
-          : isPast
-            ? 'border-zinc-600/40 opacity-60'
-            : isFull
-              ? 'border-emerald-500/40'
-              : 'border-amber-500/30',
+        isCancelled
+          ? 'border-rose-500/60 bg-rose-500/5 opacity-50'
+          : isArchived
+            ? 'border-rose-500/40 opacity-60'
+            : isPast
+              ? 'border-zinc-600/40 opacity-60'
+              : isFull
+                ? 'border-emerald-500/40'
+                : 'border-amber-500/30',
       )}
       role="button"
       tabIndex={0}
@@ -88,7 +90,7 @@ export function DroppableEventCard({
       <div className="p-2.5 space-y-2">
         <div className="flex items-start justify-between gap-1.5">
           <div className="min-w-0 flex-1">
-            <p className={cn('text-xs font-semibold leading-tight truncate', isCancelled && 'line-through')}>
+            <p className={cn('text-xs font-semibold leading-tight truncate', isCancelled && 'line-through text-rose-400')}>
               {event.name}
             </p>
             <span className={cn('inline-block mt-0.5 text-[9px] px-1.5 py-0.5 rounded border', colors.chip)}>

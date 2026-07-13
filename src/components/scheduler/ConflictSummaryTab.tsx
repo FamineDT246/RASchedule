@@ -8,6 +8,8 @@ import {
   formatPrettyDate,
   formatShortDate,
   addDaysISO,
+  todayInBarbados,
+  isPastDate,
   type EventView,
   type AssignmentView,
   type ProfileView,
@@ -61,15 +63,27 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
     const events = data.events as EventView[]
     const assignments = data.assignments as AssignmentView[]
 
-    // Build a map of (profileId + date) → assignments
+    // Skip past dates — they're no longer relevant
+    const today = todayInBarbados()
+    const futureAssignments = assignments.filter(a => a.date >= today)
+
+    // Helper: skip Tentative events — only Confirmed events produce conflicts
+    const isConflictRelevant = (eventId: string): boolean => {
+      const ev = events.find(e => e.id === eventId)
+      if (!ev) return false
+      return ev.status === 'Confirmed'
+    }
+
+    // Build a map of (profileId + date) → assignments (only Confirmed events, future dates)
     const byProfileDate = new Map<string, AssignmentView[]>()
-    for (const a of assignments) {
+    for (const a of futureAssignments) {
+      if (!isConflictRelevant(a.eventId)) continue
       const key = `${a.profileId}|${a.date}`
       if (!byProfileDate.has(key)) byProfileDate.set(key, [])
       byProfileDate.get(key)!.push(a)
     }
 
-    // 1. Double-bookings: same profile, same date, overlapping times
+    // 1. Double-bookings: same profile, same date, overlapping times (Confirmed events only)
     const doubleBookings: Issue[] = []
     for (const [key, dayAssignments] of byProfileDate) {
       if (dayAssignments.length < 2) continue
@@ -102,9 +116,10 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
       }
     }
 
-    // 2. Unavailable violations: profile assigned on a date they're marked unavailable
+    // 2. Unavailable violations: profile assigned on a date they're marked unavailable (Confirmed only, future only)
     const unavailable: Issue[] = []
-    for (const a of assignments) {
+    for (const a of futureAssignments) {
+      if (!isConflictRelevant(a.eventId)) continue
       const profile = profiles.find(p => p.id === a.profileId)
       if (!profile?.unavailableList?.includes(a.date)) continue
       const ev = events.find(e => e.id === a.eventId)
@@ -119,12 +134,12 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
       })
     }
 
-    // 3. Fatigue: >5 consecutive working days
+    // 3. Fatigue: >5 consecutive working days (Confirmed events only, future only)
     const fatigue: Issue[] = []
     for (const profile of profiles) {
       const myDates = new Set(
-        assignments
-          .filter(a => a.profileId === profile.id)
+        futureAssignments
+          .filter(a => a.profileId === profile.id && isConflictRelevant(a.eventId))
           .map(a => a.date)
           .sort(),
       )
@@ -165,22 +180,23 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
       }
     }
 
-    // 4. Unfilled slots: events with fewer primaries than required
+    // 4. Unfilled slots: Confirmed events with fewer primaries than required (future only)
     const unfilled: Issue[] = []
     for (const ev of events) {
+      if (ev.status !== 'Confirmed') continue // Skip Tentative, Draft, Cancelled, Archived
       // For each day the event runs
       const eventDates = new Set<string>()
       if (ev.specificDatesList?.length) {
-        ev.specificDatesList.forEach(d => eventDates.add(d))
+        ev.specificDatesList.forEach(d => { if (d >= today) eventDates.add(d) })
       } else {
         let d = ev.startDate
         while (d <= ev.endDate) {
-          eventDates.add(d)
+          if (d >= today) eventDates.add(d)
           d = addDaysISO(d, 1)
         }
       }
       for (const date of eventDates) {
-        const dayAssignments = assignments.filter(a => a.eventId === ev.id && a.date === date)
+        const dayAssignments = futureAssignments.filter(a => a.eventId === ev.id && a.date === date)
         const primaries = dayAssignments.filter(a => !a.isAlternative).length
         if (primaries < ev.requiredInstructors) {
           unfilled.push({
@@ -206,9 +222,10 @@ export function ConflictSummaryTab({ onJumpToEvent }: { onJumpToEvent: (eventId:
     unavailable.sort(sortByDate)
     unfilled.sort(sortByDate)
 
-    // 5. Skill gaps: instructors assigned to events where they don't have the required skills
+    // 5. Skill gaps: instructors assigned to Confirmed events where they don't have the required skills (future only)
     const skillGaps: Issue[] = []
-    for (const a of assignments) {
+    for (const a of futureAssignments) {
+      if (!isConflictRelevant(a.eventId)) continue
       const profile = profiles.find(p => p.id === a.profileId)
       const ev = events.find(e => e.id === a.eventId)
       if (!profile || !ev || ev.requiredSkills.length === 0) continue
