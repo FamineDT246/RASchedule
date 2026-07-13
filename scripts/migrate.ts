@@ -58,6 +58,18 @@ async function migrate() {
     }
   }
 
+  // Assignment.reminderSentAt (hard idempotency for 2-day reminders)
+  try {
+    await db.execute({ sql: 'ALTER TABLE Assignment ADD COLUMN reminderSentAt TEXT' })
+    console.log('  ✓ Assignment.reminderSentAt added')
+  } catch (e: any) {
+    if (String(e.message).includes('duplicate column')) {
+      console.log('  · Assignment.reminderSentAt already exists')
+    } else {
+      console.error('  ✗ Failed to add Assignment.reminderSentAt:', e.message)
+    }
+  }
+
   // ── New tables ──────────────────────────────────────────────────────────
 
   // Skill catalog (reusable across events + profiles)

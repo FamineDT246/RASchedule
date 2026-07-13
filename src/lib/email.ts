@@ -5,20 +5,19 @@
  *
  * notifyUser()         → creates bell notification + queues email (never sends)
  * sendAllPending()     → flushes queue (Send Now button, manual only)
- * sendReminders()      → sends 2-day reminders directly (DB idempotent, respects toggle)
- * sendDigests()        → flushes digest queue (disabled — use Send Now instead)
- * sendEmail()          → low-level Resend API call (no toggle check)
+ * sendReminders()      → sends 2-day reminders directly (DB-idempotent via Assignment.reminderSentAt)
+ * sendDigests()        → disabled (no-op, use Send Now instead)
+ * sendEmail()          → low-level Resend API call
  * claim/route.ts       → calls sendEmail() directly for verification codes + welcome
  *
  * ANTI-SPAM GUARANTEES:
  * 1. notifyUser() NEVER calls sendEmail() — only queues to EmailQueue
- * 2. sendReminders() checks EmailQueue DB for already-sent reminders (idempotent)
- * 3. /api/reminders has a kill switch (ENABLE_AUTOMATIC_EMAILS env var)
+ * 2. sendReminders() has 4 layers: env kill switch + API key check +
+ *    per-user toggle + Assignment.reminderSentAt column (hard idempotency)
+ * 3. /api/reminders is NOT called by any client component
  * 4. fetchSchedule() does NOT call /api/reminders
  * 5. All email functions respect User.emailNotifications toggle (except claim flow)
  * 6. sendAllPending() (Send Now) respects toggle + marks rows sent after sending
- *
- * If RESEND_API_KEY is not set, everything is silently skipped (dev mode).
  */
 
 import "server-only"
@@ -117,7 +116,7 @@ export async function notifyUser(opts: {
   // 2. Queue the email if user has email notifications on
   const prefs = await getUserEmailAndPrefs(userId)
   if (!prefs || !prefs.email) return
-  if (!prefs.emailNotifications) return // user opted out
+  if (!prefs.emailNotifications) return
 
   await db.execute({
     sql: `INSERT INTO EmailQueue (id, userId, type, subject, body, eventId, urgency, sentAt, createdAt)
@@ -210,12 +209,10 @@ export async function sendAllPending() {
 // ---------- sendDigests (disabled — use Send Now instead) ----------
 
 export async function sendDigests() {
-  // Disabled — sendAllPending (Send Now button) replaces this.
-  // Kept for API compatibility if cron is configured later.
   return { sent: 0, skipped: true }
 }
 
-// ---------- sendReminders (2-day reminders, DB-idempotent) ----------
+// ---------- sendReminders (2-day reminders, hard DB idempotency) ----------
 
 export async function sendReminders() {
   if (!RESEND_API_KEY) return { sent: 0, skipped: true }
@@ -229,45 +226,59 @@ export async function sendReminders() {
   d.setUTCDate(d.getUTCDate() + 2)
   const targetDate = d.toISOString().slice(0, 10)
 
-  // DB idempotency: check which users already got a reminder for this target date
-  let alreadySentToday = new Set<string>()
+  // HARD IDEMPOTENCY: only select assignments where reminderSentAt IS NULL
+  // This column is set on the Assignment row itself — no separate table lookup needed.
+  // Even if this function is called 1000 times, each assignment gets exactly 1 reminder.
+  let assignments
   try {
-    const sent = await db.execute({
-      sql: `SELECT DISTINCT userId FROM EmailQueue
-            WHERE type = 'reminder' AND sentAt IS NOT NULL
-            AND body LIKE ?`,
-      args: [`%${targetDate}%`],
+    assignments = await db.execute({
+      sql: `SELECT a.id as assignmentId, a.shirtColor, a.assignedDate,
+            e.name as eventName, e.location, e.startTime,
+            u.email, u.id as userId, u.emailNotifications
+            FROM Assignment a
+            JOIN Event e ON a.eventId = e.id
+            JOIN User u ON u.profileId = a.profileId
+            WHERE a.assignedDate = ? AND u.email IS NOT NULL
+            AND a.reminderSentAt IS NULL`,
+      args: [targetDate + 'T00:00:00.000Z'],
     })
-    alreadySentToday = new Set(sent.rows.map((r: any) => r.userId))
-  } catch {}
-
-  const assignments = await db.execute({
-    sql: `SELECT a.*, e.name as eventName, e.location, e.startTime, e.id as eventId,
-          u.email, u.id as userId, u.emailNotifications
-          FROM Assignment a JOIN Event e ON a.eventId = e.id
-          JOIN User u ON u.profileId = a.profileId
-          WHERE a.assignedDate = ? AND u.email IS NOT NULL`,
-    args: [targetDate + 'T00:00:00.000Z'],
-  })
+  } catch {
+    // reminderSentAt column might not exist — try adding it
+    try {
+      await db.execute({ sql: 'ALTER TABLE Assignment ADD COLUMN reminderSentAt TEXT' })
+    } catch {}
+    // Retry the query
+    assignments = await db.execute({
+      sql: `SELECT a.id as assignmentId, a.shirtColor, a.assignedDate,
+            e.name as eventName, e.location, e.startTime,
+            u.email, u.id as userId, u.emailNotifications
+            FROM Assignment a
+            JOIN Event e ON a.eventId = e.id
+            JOIN User u ON u.profileId = a.profileId
+            WHERE a.assignedDate = ? AND u.email IS NOT NULL
+            AND a.reminderSentAt IS NULL`,
+      args: [targetDate + 'T00:00:00.000Z'],
+    })
+  }
 
   let sent = 0
   for (const a of assignments.rows as any[]) {
     const emailOn = a.emailNotifications === null || a.emailNotifications === undefined ? true : !!a.emailNotifications
     if (!emailOn) continue
-    if (alreadySentToday.has(a.userId)) continue // already sent — skip
 
     const html = `<h2>⏰ Reminder</h2><p>You're assigned to <strong>${escapeHtml(a.eventName)}</strong> on ${escapeHtml(targetDate)} at ${escapeHtml(a.startTime)}.${a.location ? ` Location: ${escapeHtml(a.location)}.` : ''}${a.shirtColor ? ` Shirt: ${escapeHtml(a.shirtColor)}.` : ''}</p>`
 
-    if (await sendEmail(a.email, `Reminder: ${a.eventName} in 2 days`, html)) {
-      sent++
-      // Record in DB so we never re-send (idempotency)
+    const success = await sendEmail(a.email, `Reminder: ${a.eventName} in 2 days`, html)
+
+    // HARD IDEMPOTENCY: mark the assignment row so it can NEVER be re-sent
+    if (success) {
       try {
         await db.execute({
-          sql: `INSERT INTO EmailQueue (id, userId, type, subject, body, urgency, sentAt, createdAt)
-                VALUES (?, ?, 'reminder', ?, ?, 'instant', datetime('now'), datetime('now'))`,
-          args: [crypto.randomUUID(), a.userId, `Reminder: ${a.eventName}`, html],
+          sql: "UPDATE Assignment SET reminderSentAt = datetime('now') WHERE id = ?",
+          args: [a.assignmentId],
         })
       } catch {}
+      sent++
     }
   }
   return { sent, skipped: false }
