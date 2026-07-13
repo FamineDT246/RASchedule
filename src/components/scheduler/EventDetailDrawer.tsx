@@ -14,7 +14,7 @@ import {
 } from '@/lib/scheduler-types'
 import { cn } from '@/lib/utils'
 import {
-  X, MapPin, Clock, Users, Calendar, GraduationCap, Tag, Trash2, Shield, Shirt, Star, Lock, Wrench,
+  X, MapPin, Clock, Users, Calendar, GraduationCap, Tag, Trash2, Shield, Shirt, Star, Lock, Wrench, CalendarPlus,
 } from 'lucide-react'
 import { EquipmentSection } from './EquipmentSection'
 
@@ -27,10 +27,11 @@ type Props = {
   onRemove: (assignmentId: string) => void
   onUpdateAssignment: (assignmentId: string, patch: { isAlternative?: boolean; shirtColor?: string | null }) => void
   onBulkShirtColor?: (eventId: string, date: string, shirtColor: string) => void
+  onCopyToAllDays?: (eventId: string, profileId: string) => void
 }
 
 export function EventDetailDrawer({
-  event, date, assignments, profiles, onClose, onRemove, onUpdateAssignment, onBulkShirtColor,
+  event, date, assignments, profiles, onClose, onRemove, onUpdateAssignment, onBulkShirtColor, onCopyToAllDays,
 }: Props) {
   if (!event || !date) return null
   const colors = hostColor(event.hostColor)
@@ -183,6 +184,7 @@ export function EventDetailDrawer({
                   onRemove={onRemove}
                   onUpdate={onUpdateAssignment}
                   isPast={isPast}
+                  onCopyToAllDays={onCopyToAllDays}
                 />
               ))}
             </div>
@@ -205,6 +207,7 @@ export function EventDetailDrawer({
                     onRemove={onRemove}
                     onUpdate={onUpdateAssignment}
                     isPast={isPast}
+                    onCopyToAllDays={onCopyToAllDays}
                   />
                 ))}
               </div>
@@ -298,7 +301,7 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
 }
 
 function AssignmentRow({
-  assignment, event, profile, profiles, onRemove, onUpdate, isPast,
+  assignment, event, profile, profiles, onRemove, onUpdate, isPast, onCopyToAllDays,
 }: {
   assignment: AssignmentView
   event: EventView
@@ -307,6 +310,7 @@ function AssignmentRow({
   onRemove: (id: string) => void
   onUpdate: (id: string, patch: { isAlternative?: boolean; shirtColor?: string | null }) => void
   isPast?: boolean
+  onCopyToAllDays?: (eventId: string, profileId: string) => void
 }) {
   return (
     <div
@@ -392,6 +396,18 @@ function AssignmentRow({
           title={assignment.isAlternative ? 'Make primary' : 'Make alternative'}
         >
           <Shield className="h-3.5 w-3.5" />
+        </button>
+      )}
+
+      {/* Copy to all days — assigns this instructor to every day of the event */}
+      {!isPast && onCopyToAllDays && (
+        <button
+          onClick={() => onCopyToAllDays(event.id, assignment.profileId)}
+          className="shrink-0 p-1 rounded text-muted-foreground hover:text-emerald-300 hover:bg-emerald-500/10"
+          title="Copy this instructor to ALL days of this event"
+          aria-label="Copy to all days"
+        >
+          <CalendarPlus className="h-3.5 w-3.5" />
         </button>
       )}
 

@@ -626,6 +626,7 @@ export default function Home() {
                     onClose={() => setSelected(null)}
                     onRemove={(id) => removeMutation.mutate(id)}
                     onUpdateAssignment={(id, patch) => patchAssignmentMutation.mutate({ id, patch })}
+                    onCopyToAllDays={(eventId, profileId) => bulkAssignMutation.mutate({ eventId, profileId })}
                     onBulkShirtColor={(eventId, date, shirtColor) => {
                       const dayAssignments = data.assignments.filter(
                         a => a.eventId === eventId && a.date === date && !a.isAlternative
